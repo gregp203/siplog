@@ -1,0 +1,974 @@
+﻿using System;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+
+public class siplog
+{
+    enum color { Green, Cyan, Red, Magenta, Yellow, DarkGreen, DarkCyan, DarkRed, DarkMagenta };
+
+    static void Main(String[] arg)
+    {
+        try
+        {
+
+
+            List<string[]> messages = new List<string[]>();
+            List<string[]> callLegs = new List<string[]>();
+
+            if (arg.Length == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("\nNO FILES WERE SPECIFIED - Usage: siplog.exe logfile.log anotherlogfile.log ... ");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Environment.Exit(1);
+            }
+            foreach (String file in arg)
+            {
+                if (!File.Exists(file))
+                {
+                    Console.WriteLine("\nFile " + file + " does not exist ");
+                    Environment.Exit(1);
+                }
+            }
+
+            Console.Clear();
+            if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(@"           ____    ______   ____    ___                       ");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(@"          /\  _`\ /\__  _\ /\  _`\ /\_ \                      ");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(@"          \ \,\L\_\/_/\ \/ \ \ \L\ \//\ \     ___      __     ");
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine(@"           \/_\__ \  \ \ \  \ \ ,__/ \ \ \   / __`\  /'_ `\   ");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(@"             /\ \L\ \ \_\ \__\ \ \/   \_\ \_/\ \L\ \/\ \L\ \  ");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(@"             \ `\____\/\_____\\ \_\   /\____\ \____/\ \____ \ ");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(@"              \/_____/\/_____/ \/_/   \/____/\/___/  \/___L\ \ ");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(@"                                                       /\____/ ");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(@"                                                       \_/__/  ");
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine("Version 1                                             Greg Palmer");
+            Console.WriteLine();
+            if (arg.Length == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("\nNO FILES WERE SPECIFIED - Usage: siplog.exe logfile.log anotherlogfile.log ... ");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Environment.Exit(1);
+            }
+
+
+            messages = findmessages(arg);      //find SIP messages output to List<string[]> with 
+                                               //  index start of msg[0], 
+                                               //  date[1] 
+                                               //  time[2]
+                                               //  src IP[3]
+                                               //  dst IP[4]
+                                               //  first line of SIP msg[5] 
+                                               //  Call-ID[6]
+                                               //  To:[7]  
+                                               //  From:[8]
+                                               //  index end of msg[9]
+                                               //  color [10]
+                                               //  SDP [11]
+                                               //  filename [12]
+                                               //  SDP IP [13]
+                                               //  SDP port [14]
+                                               //  SDP codec [15]
+                                               //  useragent or server[16]
+
+            Console.WriteLine("sorting by date and time");
+            messages = messages.OrderBy(theDate => theDate[1]).ThenBy(Time => Time[2]).ToList();  // sort by date then by time                    
+            foreach (String[] line in messages)
+            {
+                if (line == null) { Console.Write("found null"); }
+            }
+
+            if (messages.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("\nNo SIP messages were found.");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Environment.Exit(1);
+            }
+
+            callLegs = findCallLegs(messages);      //find all call legs
+                                                    //  date [0]
+                                                    //  time [1]
+                                                    //  To: [2]
+                                                    //  From: [3]B
+                                                    //  Call-ID [4]
+                                                    //  selected [5]
+                                                    //  src ip [6]
+                                                    //  dst ip [7]
+                                                    //  filtered [8]
+            if (callLegs.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("\nNo Calls were found.");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Environment.Exit(1);
+            }
+            callSelect(callLegs, messages);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("\nMessage ---\n{0}", ex.Message);
+            Console.WriteLine(
+                "\nHelpLink ---\n{0}", ex.HelpLink);
+            Console.WriteLine("\nSource ---\n{0}", ex.Source);
+            Console.WriteLine(
+                "\nStackTrace ---\n{0}", ex.StackTrace);
+            Console.WriteLine(
+                "\nTargetSite ---\n{0}", ex.TargetSite);
+        }
+    }
+
+
+
+    static List<string[]> findmessages(String[] arg)
+    {
+        //Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+        //Contains instead of regex speeds things up
+        List<string[]> outputlist = new List<string[]>();
+        long progress = 0;
+        int argindx = 0;
+        foreach (string file in arg)
+        {
+            Console.WriteLine();
+            long filelinecount = 0;
+            using (StreamReader sr = new StreamReader(file))
+            {
+                string line;
+                while ((line = sr.ReadLine()) != null)
+                {
+                    filelinecount++;
+                    progress++;
+                    if (progress == 10000)
+                    {
+                        Console.Write(".");
+                        progress = 0;
+                    }
+                }
+                sr.Close();
+            }
+            Console.WriteLine("\nReading " + filelinecount + " lines of File : " + file);
+            Console.CursorTop = Console.CursorTop - 2;
+            using (StreamReader sread = new StreamReader(file))
+            {
+                string line = "";
+                for (int filelinenum = 0; filelinenum < filelinecount; filelinenum++)
+                {
+                    progress++;
+                    if (progress == 10000)
+                    {
+                        Console.Write("!");
+                        progress = 0;
+                    }
+
+
+
+                    //if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))  
+                    if (!string.IsNullOrEmpty(line) && line.Contains("ethertype IPv4"))   //Contains instead of regex speeds things up 
+                    {
+
+                        bool siptwofound = false;
+                        bool uaservfound = false;
+                        String[] outputarray = new String[17];
+                        outputarray[0] = filelinenum.ToString(); // get the index of the start of the msg 
+                        outputarray[1] = Regex.Matches(line, @"(\d{4}-\d{2}-\d{2})")[0].ToString();                           //date                                 
+                        outputarray[2] = Regex.Matches(line, @"(\d{2}:\d{2}:\d{2}.\d{6})")[0].ToString();         //time            
+                        outputarray[3] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[0].ToString();    //src IP                                                                        
+                        outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();    //dst IP           
+
+                        line = sread.ReadLine();
+                        filelinenum++;
+                        //while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
+                        while (!line.Contains("ethertype IPv4")) //Contains instead of regex speeds things up
+                        {
+                            bool foundline = false; // no need to read check every match if one matches  
+                            if (!foundline && line.Contains("SIP/2.0") && !siptwofound)
+                            {
+                                outputarray[5] = line.Trim();
+                                siptwofound = true;
+                                foundline = true;
+                            }
+                            if (!foundline && line.Contains("Call-ID:") && !line.Contains("X-IPC-Call-ID"))
+                            {
+                                outputarray[6] = Regex.Matches(line, @"(?<=Call-ID: ).*")[0].ToString();
+                                foundline = true;
+                            } // get call-id                    
+                            if (!foundline && line.Contains("To:"))
+                            {
+                                outputarray[7] = Regex.Matches(line, @"(?<=To: ).*")[0].ToString();
+                                foundline = true;
+                            } // get to:                    
+                            if (!foundline && line.Contains("From:"))
+                            {
+                                outputarray[8] = Regex.Matches(line, @"(?<=From: ).*")[0].ToString();
+                                foundline = true;
+                            } //get from                    
+                            if (!foundline && line.Contains("Content-Type: application/sdp"))
+                            {
+                                outputarray[11] = " SDP";
+                                foundline = true;
+                            }
+                            if (!foundline && new Regex(@"c=IN IP4 (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").IsMatch(line))
+                            {
+                                outputarray[13] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[0].ToString();
+                                foundline = true;
+                            }
+                            if (!foundline && new Regex(@"m=audio \d* RTP\/AVP \d*").IsMatch(line))
+                            {
+                                outputarray[14] = Regex.Matches(line, @"(?<=m=audio )\d*")[0].ToString();
+                                outputarray[15] = Regex.Matches(line, @"(?<=RTP\/AVP )\d*")[0].ToString();
+                                if (outputarray[15] == "0") { outputarray[15] = "G711u"; }
+                                if (outputarray[15] == "8") { outputarray[15] = "G711a"; }
+                                if (outputarray[15] == "9") { outputarray[15] = "G722"; }
+                                if (outputarray[15] == "18") { outputarray[15] = "G729"; }
+                                foundline = true;
+                            }
+                            if (!foundline && !uaservfound && line.Contains("User-Agent:"))
+                            {
+                                outputarray[16] = Regex.Matches(line, @"(?<=User-Agent: ).*")[0].ToString();
+                                uaservfound = true;
+                                foundline = true;
+                            }
+                            if (!foundline && !uaservfound && line.Contains("Server:"))
+                            {
+                                outputarray[16] = Regex.Matches(line, @"(?<=Server: ).*")[0].ToString();
+                                uaservfound = true;
+                                foundline = true;
+                            }
+                            if (!foundline && !uaservfound && new Regex(@"(?<=Contact: ).*wlssuser").IsMatch(line))
+                            {
+                                outputarray[16] = "Unigy";
+                                foundline = true;
+                            }
+                            if (filelinenum >= filelinecount) { break; }
+                            else
+                            {
+                                line = sread.ReadLine();
+                                filelinenum++;
+                            }
+                            progress++;
+                            if (progress == 10000)
+                            {
+                                Console.Write("!");
+                                progress = 0;
+                            }
+
+                        }
+                        filelinenum--; // to counter the advancement of the for loop
+                        outputarray[9] = filelinenum.ToString(); // get the index of the end of the msg*/
+                        outputarray[10] = "ConsoleColor.Gray";
+                        outputarray[12] = file; //add file name to dataset 
+                        if (outputarray[5] == null) { outputarray[5] = "Invalid SIP characters"; }
+                        outputlist.Add(outputarray);
+                    }
+                    else
+                    {
+                        line = sread.ReadLine();
+                    }
+                }
+                sread.Close();
+            }
+            argindx++;
+            Console.CursorTop = Console.CursorTop + 2;
+        }
+        Console.WriteLine();
+        return outputlist;
+    }
+
+    static List<string[]> findCallLegs(List<string[]> messagesinput)
+    {
+        bool getcallid = false;
+        List<string[]> listout = new List<string[]>();
+        for (int i = 0; i < messagesinput.Count; i++)
+        {
+            if (messagesinput[i][3] != messagesinput[i][4])
+            {
+                if (messagesinput[i][5].Contains("INVITE"))
+                {
+                    if (listout.Count > 0) // if it is not the first message
+                    {
+                        //check if call-id was not already gotten
+                        for (int j = 0; j < listout.Count; j++)
+                        {
+                            getcallid = true;
+                            if (listout[j][4] == messagesinput[i][6]) // check if re-invite
+                            {
+                                getcallid = false;
+                                break;
+                            }
+                        }
+                        if (getcallid == true)
+                        {
+                            // copy from msg input to arrayout
+                            String[] arrayout = new String[9];
+                            arrayout[0] = messagesinput[i][1];//  date [0]
+                            arrayout[1] = messagesinput[i][2];//  time [1]
+                            arrayout[2] = messagesinput[i][7];//  To: [2]
+                            arrayout[3] = messagesinput[i][8];//  From: [3]
+                            arrayout[4] = messagesinput[i][6];//  Call-ID [4]
+                            arrayout[5] = " ";                //  selected [5]  " " = not selected
+                            arrayout[6] = messagesinput[i][3];//  src IP [6]
+                            arrayout[7] = messagesinput[i][4];//  dst ip [7]
+                            arrayout[8] = "filtered";
+                            if (messagesinput[i][6] != null) { listout.Add(arrayout); }
+                        }
+                    }
+                    else
+                    {
+                        String[] arrayout = new String[9];
+                        arrayout[0] = messagesinput[i][1];//  date [0]
+                        arrayout[1] = messagesinput[i][2];//  time [1]
+                        arrayout[2] = messagesinput[i][7];//  To: [2]
+                        arrayout[3] = messagesinput[i][8];//  From: [3]
+                        arrayout[4] = messagesinput[i][6];//  Call-ID [4]
+                        arrayout[5] = " ";                //  selected [5]  " " = not selected
+                        arrayout[6] = messagesinput[i][3];//  src IP [6]
+                        arrayout[7] = messagesinput[i][4];//  dst ip [7]
+                        arrayout[8] = "filtered";
+                        if (messagesinput[i][6] != null) { listout.Add(arrayout); }
+                    }
+                }
+            }
+        }
+        Console.WriteLine();
+        return listout;
+    }
+
+    static void callDisplay(List<string[]> callLegs)
+    {
+        Console.Clear();
+        Console.WindowWidth = 161;
+        Console.BufferWidth = 200;
+        Console.SetCursorPosition(0, 0);
+        if (callLegs.Count > Console.WindowHeight)
+        {
+            Console.BufferHeight = 10 + callLegs.Count;
+        }
+
+        Console.WriteLine("Press [Spacebar] to select calls. Press [Enter] for call flow diagram. Press [F] to filter the calls . Press [S] to search all SIP msgs. Press [Esc] to quit.");
+        Console.WriteLine("{0,-2} {1,-6} {2,-10} {3,-12} {4,-45} {5,-45} {6,-16} {7,-16}", "*", "index", "date", "time", "from:", "to:", "src IP", "dst IP");
+        Console.WriteLine(new String('-', 160));
+        int i = 0;
+        foreach (String[] ary in callLegs)
+        {
+            callline(ary, i);
+            i++;
+        }
+    }
+
+    static void callline(string[] callLeg, int indx)
+    {
+        if (callLeg[5] == "*") { Console.ForegroundColor = ConsoleColor.Cyan; }
+        Console.WriteLine("{0,-2} {1,-6} {2,-10} {3,-12} {5,-45} {4,-45} {6,-16} {7,-17}"
+            , callLeg[5]
+            , indx
+            , callLeg[0]
+            , callLeg[1].Substring(0, 11)
+            , callLeg[2].Split('@')[0].Substring(0, Math.Min(44, callLeg[2].Split('@')[0].Length))
+            , callLeg[3].Split('@')[0].Substring(0, Math.Min(44, callLeg[3].Split('@')[0].Length))
+            , callLeg[6]
+            , callLeg[7]);
+        Console.ForegroundColor = ConsoleColor.Gray;
+    }
+
+    static void callSelect(List<string[]> callLegs, List<string[]> messages)
+    {
+        int selected = 0;
+        bool done = false;
+        int position = 0;
+        String[] filter = new String[20];
+        List<string[]> callLegsFiltered = new List<string[]>();
+        for (int i = 0; i < callLegs.Count; i++)
+        {
+            if (callLegs[i][8] == "filtered") { callLegsFiltered.Add(callLegs[i]); }
+        }
+        callDisplay(callLegsFiltered);
+        Console.WriteLine("Number of SIP messages found : " + messages.Count);
+        Console.WriteLine("Number of Call legs found : " + callLegs.Count);
+        Console.WriteLine("Number of Call legs filtered : " + callLegsFiltered.Count);
+        Console.SetCursorPosition(0, 0);
+        Console.SetCursorPosition(0, 3);
+        Console.BackgroundColor = ConsoleColor.DarkGray;
+        Console.ForegroundColor = ConsoleColor.Black;
+        callline(callLegsFiltered[position], position);
+        Console.SetCursorPosition(0, 3);
+        Console.BackgroundColor = ConsoleColor.Black;
+        Console.ForegroundColor = ConsoleColor.Gray;
+        while (done == false)
+        {
+            ConsoleKeyInfo keypressed = Console.ReadKey(true);
+            if (keypressed.Key == ConsoleKey.DownArrow)
+            {
+                if (position < callLegsFiltered.Count - 1)
+                {
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    callline(callLegsFiltered[position], position);
+                    position++;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+            }
+            if (keypressed.Key == ConsoleKey.UpArrow)
+            {
+                if (position > 0)
+                {
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop = Console.CursorTop - 2;     //move cursor up two since writline advances one
+                    position--;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.BackgroundColor = ConsoleColor.Black; //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+                else
+                {
+                    Console.SetCursorPosition(0, 0);
+                    Console.SetCursorPosition(0, 3);
+                }
+            }
+            if (keypressed.Key == ConsoleKey.Spacebar)
+            {
+                if (callLegsFiltered[position][5] == "*")
+                {
+                    callLegsFiltered[position][5] = " ";
+                    selected--;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+                else
+                {
+                    callLegsFiltered[position][5] = "*";
+                    selected++;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+            }
+            if (keypressed.Key == ConsoleKey.Enter)
+            {
+                if (selected > 0)
+                {
+                    List<string[]> selectedmessages = new List<string[]>();
+                    selectedmessages = selectMessages(messages, callLegsFiltered);  //find all messages of selected call legs
+                    msgselect(selectedmessages);   //select SIP message from the call flow diagram                        
+                    callDisplay(callLegsFiltered);
+                    Console.WriteLine("Number of SIP messages found : " + messages.Count);
+                    Console.WriteLine("Number of Call legs found : " + callLegs.Count);
+                    Console.WriteLine("Number of Call legs filtered : " + callLegsFiltered.Count);
+                    position = 0;
+                    Console.SetCursorPosition(0, 0);
+                    Console.SetCursorPosition(0, 3);
+                    Console.BackgroundColor = ConsoleColor.Gray;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.SetCursorPosition(0, 3);
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Gray;
+
+                }
+            }
+            if (keypressed.Key == ConsoleKey.Escape) { Console.Clear(); System.Environment.Exit(0); }
+            if (keypressed.Key == ConsoleKey.S)
+            {
+                listallmsg(messages);
+                callDisplay(callLegsFiltered);
+                Console.WriteLine("Number of SIP messages found : " + messages.Count);
+                Console.WriteLine("Number of Call legs found : " + callLegs.Count);
+                Console.WriteLine("Number of Call legs filtered : " + callLegsFiltered.Count);
+                position = 0;
+                Console.SetCursorPosition(0, 0);
+                Console.SetCursorPosition(0, 3);
+                Console.BackgroundColor = ConsoleColor.Gray;
+                Console.ForegroundColor = ConsoleColor.Black;
+                callline(callLegsFiltered[position], position);
+                Console.SetCursorPosition(0, 3);
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+            if (keypressed.Key == ConsoleKey.F)
+            {
+                callLegsFiltered.Clear();
+                while (callLegsFiltered.Count == 0)
+                {
+                    Console.WriteLine("                                                                                                                          ");
+                    Console.WriteLine("  +------------------------------------------------------------------------------------------------------------------------------------+  ");
+                    Console.WriteLine("  | Enter space separated items like extensions, names or IP. Items are OR. Case sensitive. Leave blank for no Filter                  |  ");
+                    Console.WriteLine("  |                                                                                                                                    |  ");
+                    Console.WriteLine("  +------------------------------------------------------------------------------------------------------------------------------------+  ");
+                    Console.WriteLine("                                                                                                                          ");
+                    Console.CursorTop = Console.CursorTop - 3;
+                    Console.CursorLeft = Console.CursorLeft + 4;
+                    filter = Console.ReadLine().Split(' ');
+                    bool foundcalls = false;
+                    if (!string.IsNullOrEmpty(filter[0]))
+                    {
+                        for (int i = 0; i < callLegs.Count; i++)
+                        {
+                            bool addcall = false;
+                            foreach (String callitem in callLegs[i])
+                            {
+                                foreach (String filteritem in filter)
+                                {
+                                    if (callitem.Contains(filteritem)) { addcall = true; }
+                                }
+                            }
+                            if (addcall) { callLegs[i][8] = "filtered"; foundcalls = true; } else { callLegs[i][8] = ""; }
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < callLegs.Count; i++)
+                        {
+                            callLegs[i][8] = "filtered";
+                            foundcalls = true;
+                        }
+                    }
+                    if (foundcalls)
+                    {
+                        for (int i = 0; i < callLegs.Count; i++)
+                        {
+                            if (callLegs[i][8] == "filtered") { callLegsFiltered.Add(callLegs[i]); }
+                        }
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.CursorTop = Console.CursorTop - 1;
+                        Console.WriteLine("  | No calls found. Press any key to continue");
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.CursorVisible = true;
+                        Console.ReadKey(true);
+                        Console.CursorTop = Console.CursorTop - 4;
+                    }
+                }
+                callDisplay(callLegsFiltered);
+                Console.WriteLine("Number of SIP messages found : " + messages.Count);
+                Console.WriteLine("Number of Call legs found : " + callLegs.Count);
+                Console.WriteLine("Number of Call legs filtered : " + callLegsFiltered.Count);
+                position = 0;
+                Console.SetCursorPosition(0, 0);
+                Console.SetCursorPosition(0, 3);
+                Console.BackgroundColor = ConsoleColor.Gray;
+                Console.ForegroundColor = ConsoleColor.Black;
+                callline(callLegsFiltered[position], position);
+                Console.SetCursorPosition(0, 3);
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+        }
+        return;
+    }
+
+    static List<string[]> selectMessages(List<string[]> messages, List<string[]> callLegs)
+    {
+        List<string[]> outputlist = new List<string[]>();
+        List<string> callids = new List<string>();
+        color callcolor = color.Green;
+        for (int i = 0; i < callLegs.Count; i++)
+        {
+            if (callLegs[i][5] == "*")
+            {
+                callids.Add(callLegs[i][4]);
+            }
+        }
+        foreach (string cid in callids)
+        {
+            for (int i = 0; i < messages.Count; i++)
+            {
+                if (cid == messages[i][6])
+                {
+                    messages[i][10] = callcolor.ToString();
+                }
+            }
+            if (callcolor == color.DarkMagenta) { callcolor = color.Green; } else { callcolor++; }
+        }
+        for (int i = 0; i < messages.Count; i++)
+        {
+            if (callids.Contains(messages[i][6]))
+            {
+                if (messages[i][3] != messages[i][4])
+                {
+                    outputlist.Add(messages[i]);
+                }
+            }
+        }
+        return outputlist;
+    }
+
+    static List<string> getips(List<string[]> selectedmessages)
+    {
+        List<string> ips = new List<string>();
+        for (int i = 0; i < selectedmessages.Count; i++)
+        {
+            if (!ips.Contains(selectedmessages[i][3]))
+            {
+                ips.Add(selectedmessages[i][3]);
+            }
+            if (!ips.Contains(selectedmessages[i][4]))
+            {
+                ips.Add(selectedmessages[i][4]);
+            }
+        }
+        return ips;
+    }
+
+    static void flow(List<string[]> selectedmessages, List<string> ips)
+    {
+        Console.Clear();
+        int width = 24;
+        Console.Write(new String(' ', 17));
+        foreach (string ip in ips)
+        {
+            width = width + 29;
+            if (width > Console.WindowWidth)
+            {
+                Console.BufferWidth = width;
+            }
+            Console.Write(ip + new String(' ', 29 - ip.Length));
+        }
+        Console.WriteLine();
+        Console.Write(new String(' ', 17));
+        foreach (string ip in ips)
+        {
+            string ua = "";
+            foreach (string[] ary in selectedmessages)
+            {
+                if (ary[3] == ip && ary[16] != null)
+                {
+                    ua = ary[16].Substring(0, Math.Min(15, ary[16].Length));
+                    break;
+                }
+            }
+
+            Console.Write(ua + new String(' ', 29 - ua.Length));
+        }
+        Console.WriteLine();
+        Console.WriteLine(new String('-', width - 1));
+        foreach (string[] msg in selectedmessages)
+        {
+            if ((Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)) { break; }
+            messageline(msg, ips, false);
+        }
+        Console.WriteLine(new String('-', width - 1));
+    }
+
+    static void messageline(string[] message, List<string> ips, bool invert)
+    {
+        //get the index of the src and dst IP
+        int srcindx = ips.IndexOf(message[3]);
+        int dstindx = ips.IndexOf(message[4]);
+        bool isright = false;
+        int lowindx = 0;
+        int hiindx = 0;
+        string space = new String(' ', 28) + "|";
+        if (srcindx < dstindx)
+        {
+            lowindx = srcindx;
+            hiindx = dstindx;
+            isright = true;
+        }
+        if (srcindx > dstindx)
+        {
+            lowindx = dstindx;
+            hiindx = srcindx;
+            isright = false;
+        }
+        if (invert)
+        {
+            Console.BackgroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.Black;
+        }
+        else
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Gray;
+        }
+        Console.Write("{0,-10} {1,-12}|", message[1], message[2].Substring(0, 11));
+        for (int i = 0; i < lowindx; i++)
+        {
+            Console.Write(space);
+        }
+        Console.ForegroundColor = (ConsoleColor)Enum.Parse(typeof(ConsoleColor), message[10]);
+
+        if (isright) { Console.Write("-"); }
+        else { Console.Write("<"); }
+        string firstline = message[5].Replace("SIP/2.0 ", "");
+        string displayedline = firstline.Substring(0, Math.Min(18, firstline.Length)) + message[11];
+        int fullline = 29 * (hiindx - (lowindx + 1));
+        double leftline = ((26 - displayedline.Length) + fullline) / 2; //
+        Console.Write(new String('-', (int)Math.Floor(leftline)));
+        Console.Write(displayedline);
+        double rightline = 26 - leftline - displayedline.Length + fullline; //+25*(hiindx-lowindx+1)
+        Console.Write(new String('-', (int)rightline));
+        if (isright) { Console.Write(">"); }
+        else { Console.Write("-"); }
+        if (invert)
+        {
+            Console.BackgroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.Black;
+        }
+        else
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Gray;
+        }
+        Console.Write("|");
+
+        for (int i = 0; i < ips.Count - 1 - hiindx; i++)
+        {
+            Console.Write(space);
+        }
+        if (message[13] != null) { Console.Write(" {0}:{1} {2}", message[13], message[14], message[15]); }
+        Console.BackgroundColor = ConsoleColor.Black;
+        Console.ForegroundColor = ConsoleColor.Gray;
+        Console.WriteLine();
+    }
+
+    static void msgselect(List<string[]> selectedmessages)
+    {
+        List<string> ips = new List<string>();
+        ips = getips(selectedmessages); //get the IP addresses of the selected SIP messages for the top of the screen        
+        int position = 0;
+
+        Console.BackgroundColor = ConsoleColor.Black;
+        Console.ForegroundColor = ConsoleColor.Gray;
+        if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = selectedmessages.Count + 20; }
+        flow(selectedmessages, ips);  //display call flow Diaggram
+        Console.SetCursorPosition(0, 0);   //brings window to the very top
+        Console.SetCursorPosition(0, 3);
+        messageline(selectedmessages[0], ips, true);
+        Console.CursorTop = Console.CursorTop - 1;
+
+        bool done = false;
+        while (done == false)
+        {
+            ConsoleKeyInfo keypress = Console.ReadKey(true);
+            if (keypress.Key == ConsoleKey.DownArrow)
+            {
+                if (position < selectedmessages.Count - 1)
+                {
+                    messageline(selectedmessages[position], ips, false);
+                    position++;
+                    messageline(selectedmessages[position], ips, true);
+                    Console.CursorTop = Console.CursorTop - 1;
+                }
+            }
+            if (keypress.Key == ConsoleKey.UpArrow)
+            {
+                if (position > 0)
+                {
+                    messageline(selectedmessages[position], ips, false);
+                    Console.CursorTop = Console.CursorTop - 2;
+                    position--;
+                    messageline(selectedmessages[position], ips, true);
+                    Console.CursorTop = Console.CursorTop - 1;
+                }
+                else
+                {
+                    Console.SetCursorPosition(0, 0);   //brings window to the very top
+                    Console.SetCursorPosition(0, 3);
+                }
+            }
+            if ((keypress.Key == ConsoleKey.Enter) || (keypress.Key == ConsoleKey.Spacebar))
+            {
+                displaymessage(position, selectedmessages);
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Gray;
+                if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = selectedmessages.Count + 20; }
+                flow(selectedmessages, ips);  //display call flow Diaggram
+                if (position == 0)
+                {
+                    Console.SetCursorPosition(0, 0);   //brings window to the very top
+                    Console.SetCursorPosition(0, 3);
+                    messageline(selectedmessages[0], ips, true);
+                    Console.CursorTop = Console.CursorTop - 1;
+                }
+                else
+                {
+                    Console.SetCursorPosition(0, (position > 17) ? position - 17 : 0);
+                    Console.SetCursorPosition(0, position + 3);
+                    messageline(selectedmessages[position], ips, true);
+                    Console.CursorTop = Console.CursorTop - 1;
+                }
+            }
+            if (keypress.Key == ConsoleKey.Escape)
+            {
+                done = true;
+            }
+        }
+        return;
+    }
+
+    static void displaymessage(int msgindxselected, List<string[]> messages)
+    {
+        Console.Clear();
+        if ((Int32.Parse(messages[msgindxselected][9]) - Int32.Parse(messages[msgindxselected][0])) > Console.BufferHeight)
+        {
+            Console.BufferHeight = 5 + (Int32.Parse(messages[msgindxselected][9]) - Int32.Parse(messages[msgindxselected][0]));
+        }
+        Console.WriteLine("From line " + messages[msgindxselected][0] + " to " + messages[msgindxselected][9] + " from file " + messages[msgindxselected][12]);
+        using (StreamReader sr = new StreamReader(messages[msgindxselected][12]))
+        {
+            string line = "";
+            Console.Write("Finding lines from file");
+            long progress = 0;
+            for (int i = 0; i < Int32.Parse(messages[msgindxselected][0]); i++)
+            {
+                progress++;
+                if (progress == 10000)
+                {
+                    Console.Write(".");
+                    progress = 0;
+                }
+                line = sr.ReadLine();
+            }
+            Console.WriteLine();
+            Console.WriteLine(line);
+            for (int j = Int32.Parse(messages[msgindxselected][0]); j < Int32.Parse(messages[msgindxselected][9]); j++)
+            {
+                Console.WriteLine(sr.ReadLine());
+            }
+            sr.Close();
+        }
+        Console.SetCursorPosition(0, 0);
+        Console.ReadKey(true);
+    }
+
+    static void listallmsg(List<string[]> messages)
+    {
+        List<string[]> filtered = new List<string[]>();
+        int maxline = 0;
+        bool done = false;
+        int position = 0;
+        Console.Clear();
+        Console.BufferWidth = 500;
+        Console.BufferHeight = 32766;
+        Console.SetCursorPosition(0, 0);
+        Console.WriteLine("Enter regex to search. Max lines displayed are 32765. example: for all the msg to/from 10.28.160.42 at 16:40:11 use 16:40:11.*10.28.160.42");
+        Console.WriteLine("Data format: line number|date|time|src IP|dst IP|first line of SIP msg|Call-ID|To:|From:|line number|color|has SDP|filename|SDP IP|SDP port|SDP codec|useragent");
+        string strginput = Console.ReadLine();
+        Console.Clear();
+        Console.SetCursorPosition(0, 0);
+        if (string.IsNullOrEmpty(strginput))
+        {
+            Console.WriteLine("You must enter a regex");
+            Console.ReadKey(true);
+            done = true;
+        }
+        else
+        {
+            Regex regexinput = new Regex(strginput);
+            foreach (string[] ary in messages)
+            {
+                if ((Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)) { break; }
+                if (regexinput.IsMatch(string.Join("|", ary)))
+                {
+                    Console.WriteLine(string.Join("|", ary));
+                    filtered.Add(ary);
+                    maxline++;
+                    if (maxline > 32764) { break; }
+                }
+            }
+            Console.SetCursorPosition(0, 0);
+            Console.BackgroundColor = ConsoleColor.DarkGray;
+            Console.ForegroundColor = ConsoleColor.Black;
+            Console.WriteLine(string.Join("|", filtered[position]));
+            Console.CursorTop = Console.CursorTop - 1;
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.Gray;
+        }
+        while (!done)
+        {
+            ConsoleKeyInfo keypressed = Console.ReadKey(true);
+            switch (keypressed.Key)
+            {
+                case ConsoleKey.DownArrow:
+
+                    if (position < filtered.Count - 1)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.WriteLine(string.Join("|", filtered[position]));
+                        position++;
+                        Console.BackgroundColor = ConsoleColor.DarkGray;
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        Console.WriteLine(string.Join("|", filtered[position]));
+                        Console.CursorTop = Console.CursorTop - 1;
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                    }
+                    break;
+
+                case ConsoleKey.UpArrow:
+                    if (position > 0)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.WriteLine(string.Join("|", filtered[position]));
+                        position--;
+                        Console.CursorTop = Console.CursorTop - 2;
+                        Console.BackgroundColor = ConsoleColor.DarkGray;
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        Console.WriteLine(string.Join("|", filtered[position]));
+                        Console.CursorTop = Console.CursorTop - 1;
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                    }
+                    break;
+
+                case ConsoleKey.Enter:
+                    displaymessage(position, filtered);
+                    Console.Clear();
+                    Console.BufferWidth = 500;
+                    Console.BufferHeight = 32766;
+                    Console.SetCursorPosition(0, 0);
+                    foreach (string[] line in filtered)
+                    {
+                        Console.WriteLine(string.Join("|", line));
+                    }
+                    Console.SetCursorPosition(0, position);
+                    Console.BackgroundColor = ConsoleColor.DarkGray;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.WriteLine(string.Join("|", filtered[position]));
+                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    break;
+
+                case ConsoleKey.Escape:
+                    done = true;
+                    break;
+            }
+        }
+    }
+}
