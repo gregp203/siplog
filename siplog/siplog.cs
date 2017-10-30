@@ -202,7 +202,7 @@ public class siplog
                                 siptwofound = true;
                                 foundline = true;
                             }
-                            if (!foundline && line.Contains("Call-ID:") && !line.Contains("X-IPC-Call-ID"))
+                            if (!foundline && line.Contains("Call-ID:"))
                             {
                                 outputarray[6] = Regex.Matches(line, @"(?<=Call-ID: ).*")[0].ToString();
                                 foundline = true;
