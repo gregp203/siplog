@@ -251,7 +251,7 @@ public class siplog
                             }
                             if (!foundline && !uaservfound && new Regex(@"(?<=Contact: ).*wlssuser").IsMatch(line))
                             {
-                                outputarray[16] = "Unigy";
+                                outputarray[16] = "occas";
                                 foundline = true;
                             }
                             if (filelinenum >= filelinecount) { break; }
