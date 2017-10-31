@@ -5,7 +5,7 @@ Log reader for tcpdump -A stdout of SIP messages
 Usage: siplog.exe logfile.log anotherlogfile.log ...
 
 
-edit the findmessages method to match the string for begining of SIP message.
+edit the findmessages function to match the string for begining of SIP message.
 it determines the end of the message when it matches the begining of the next message.
 The array for each message:
 
