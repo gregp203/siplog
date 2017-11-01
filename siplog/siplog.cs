@@ -137,7 +137,7 @@ public class siplog
 
     static List<string[]> findmessages(String[] arg)
     {
-        //Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+        //Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
         //Contains instead of regex speeds things up
         List<string[]> outputlist = new List<string[]>();
         long progress = 0;
@@ -204,7 +204,7 @@ public class siplog
                             }
                             if (!foundline && line.Contains("Call-ID:"))
                             {
-                                outputarray[6] = Regex.Matches(line, @"(?<=Call-ID: ).*")[0].ToString();
+                                outputarray[6] = Regex.Matches(line, @"(?<=Call-ID:).*")[0].ToString();
                                 foundline = true;
                             } // get call-id                    
                             if (!foundline && line.Contains("To:"))
