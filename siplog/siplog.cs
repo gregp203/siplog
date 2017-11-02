@@ -114,9 +114,12 @@ public class siplog
             if (callLegs.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine("\nNo Calls were found.");
+                Console.WriteLine("\nNo Calls were found that start with an INVITE");
                 Console.ForegroundColor = ConsoleColor.Gray;
-                Environment.Exit(1);
+                Console.WriteLine("Press any key to search SIP messages");
+                Console.ReadKey(true);
+                listallmsg(messages);
+
             }
             callSelect(callLegs, messages);
         }
@@ -137,7 +140,15 @@ public class siplog
 
     static List<string[]> findmessages(String[] arg)
     {
-        //Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+        Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+        string callidRgx = @"(?<=\sCall-ID:).*";
+        string toRgx = @"(?<=\sTo:).*";
+        string fromRgx = @"(?<=\sFrom:).*";
+        string uaRgx = @"(?<=\sUser-Agent:).*";
+        string serverRgx = @"(?<=\sServer:).*";
+        string portRgx = @"(?<=m=audio )\d*";
+        string codecRgx = @"(?<=RTP\/AVP )\d*";
+
         //Contains instead of regex speeds things up
         List<string[]> outputlist = new List<string[]>();
         long progress = 0;
@@ -177,18 +188,19 @@ public class siplog
 
 
 
-                    //if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))  
-                    if (!string.IsNullOrEmpty(line) && line.Contains("ethertype IPv4"))   //Contains instead of regex speeds things up 
+                    if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))  
+                    //if (!string.IsNullOrEmpty(line) && line.Contains("ethertype IPv4"))   //Contains instead of regex speeds things up 
                     {
+
 
                         bool siptwofound = false;
                         bool uaservfound = false;
                         String[] outputarray = new String[17];
                         outputarray[0] = filelinenum.ToString(); // get the index of the start of the msg 
-                        outputarray[1] = Regex.Matches(line, @"(\d{4}-\d{2}-\d{2})")[0].ToString();                           //date                                 
-                        outputarray[2] = Regex.Matches(line, @"(\d{2}:\d{2}:\d{2}.\d{6})")[0].ToString();         //time            
-                        outputarray[3] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[0].ToString();    //src IP                                                                        
-                        outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();    //dst IP           
+                        outputarray[1] = Regex.Matches(line, @"(\d{4}-\d{2}-\d{2})")[0].ToString();                             //date                                 
+                        outputarray[2] = Regex.Matches(line, @"(\d{2}:\d{2}:\d{2}.\d{6})")[0].ToString();                       //time            
+                        outputarray[3] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[0].ToString();      //src IP                                                                        
+                        outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP           
 
                         line = sread.ReadLine();
                         filelinenum++;
@@ -202,19 +214,19 @@ public class siplog
                                 siptwofound = true;
                                 foundline = true;
                             }
-                            if (!foundline && line.Contains("Call-ID:"))
+                            if (!foundline && new Regex(callidRgx).IsMatch(line))
                             {
-                                outputarray[6] = Regex.Matches(line, @"(?<=Call-ID:).*")[0].ToString();
+                                outputarray[6] = Regex.Matches(line, callidRgx)[0].ToString().Trim();
                                 foundline = true;
                             } // get call-id                    
-                            if (!foundline && line.Contains("To:"))
+                            if (!foundline && new Regex(toRgx).IsMatch(line))
                             {
-                                outputarray[7] = Regex.Matches(line, @"(?<=To: ).*")[0].ToString();
+                                outputarray[7] = Regex.Matches(line, toRgx)[0].ToString().Trim();
                                 foundline = true;
                             } // get to:                    
-                            if (!foundline && line.Contains("From:"))
+                            if (!foundline && new Regex(fromRgx).IsMatch(line))
                             {
-                                outputarray[8] = Regex.Matches(line, @"(?<=From: ).*")[0].ToString();
+                                outputarray[8] = Regex.Matches(line, fromRgx)[0].ToString().Trim();
                                 foundline = true;
                             } //get from                    
                             if (!foundline && line.Contains("Content-Type: application/sdp"))
@@ -229,27 +241,27 @@ public class siplog
                             }
                             if (!foundline && new Regex(@"m=audio \d* RTP\/AVP \d*").IsMatch(line))
                             {
-                                outputarray[14] = Regex.Matches(line, @"(?<=m=audio )\d*")[0].ToString();
-                                outputarray[15] = Regex.Matches(line, @"(?<=RTP\/AVP )\d*")[0].ToString();
+                                outputarray[14] = Regex.Matches(line, portRgx)[0].ToString().Trim();
+                                outputarray[15] = Regex.Matches(line, codecRgx)[0].ToString().Trim();
                                 if (outputarray[15] == "0") { outputarray[15] = "G711u"; }
                                 if (outputarray[15] == "8") { outputarray[15] = "G711a"; }
                                 if (outputarray[15] == "9") { outputarray[15] = "G722"; }
                                 if (outputarray[15] == "18") { outputarray[15] = "G729"; }
                                 foundline = true;
                             }
-                            if (!foundline && !uaservfound && line.Contains("User-Agent:"))
+                            if (!foundline && !uaservfound && new Regex(uaRgx).IsMatch(line))
                             {
-                                outputarray[16] = Regex.Matches(line, @"(?<=User-Agent: ).*")[0].ToString();
+                                outputarray[16] = Regex.Matches(line, uaRgx)[0].ToString().Trim();
                                 uaservfound = true;
                                 foundline = true;
                             }
-                            if (!foundline && !uaservfound && line.Contains("Server:"))
+                            if (!foundline && !uaservfound && new Regex(serverRgx).IsMatch(line))
                             {
-                                outputarray[16] = Regex.Matches(line, @"(?<=Server: ).*")[0].ToString();
+                                outputarray[16] = Regex.Matches(line, serverRgx)[0].ToString().Trim();
                                 uaservfound = true;
                                 foundline = true;
                             }
-                            if (!foundline && !uaservfound && new Regex(@"(?<=Contact: ).*wlssuser").IsMatch(line))
+                            if (!foundline && !uaservfound && new Regex(@"(?<=\sContact: ).*wlssuser").IsMatch(line))
                             {
                                 outputarray[16] = "occas";
                                 foundline = true;
