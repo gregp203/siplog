@@ -56,7 +56,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.monoitor size doesnt matter                Greg Palmer");
+            Console.WriteLine("Version 1.monitor size doesn't matter                Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
