@@ -363,7 +363,7 @@ public class siplog
     static void callDisplay(List<string[]> callLegs)
     {
         Console.Clear();
-        Console.WindowWidth = 161;
+        if (Console.LargestWindowWidth > 161) { Console.WindowWidth = 161; }
         Console.BufferWidth = 200;
         Console.SetCursorPosition(0, 0);
         if (callLegs.Count > Console.WindowHeight)
@@ -377,6 +377,7 @@ public class siplog
         int i = 0;
         foreach (String[] ary in callLegs)
         {
+
             callline(ary, i);
             i++;
         }
