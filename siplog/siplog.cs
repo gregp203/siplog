@@ -56,7 +56,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.monitor size doesn't matter                Greg Palmer");
+            Console.WriteLine("Version 1.1                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -85,6 +85,7 @@ public class siplog
                                                //  SDP port [14]
                                                //  SDP codec [15]
                                                //  useragent or server[16]
+                                              
 
             Console.WriteLine("sorting by date and time");
             messages = messages.OrderBy(theDate => theDate[1]).ThenBy(Time => Time[2]).ToList();  // sort by date then by time                    
@@ -111,6 +112,7 @@ public class siplog
                                                     //  src ip [6]
                                                     //  dst ip [7]
                                                     //  filtered [8]
+                                                    //  notify [9]
             if (callLegs.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.White;
@@ -309,7 +311,7 @@ public class siplog
         {
             if (messagesinput[i][3] != messagesinput[i][4])
             {
-                if (messagesinput[i][5].Contains("INVITE"))
+                if (messagesinput[i][5].Contains("INVITE")|messagesinput[i][5].Contains("NOTIFY"))
                 {
                     if (listout.Count > 0) // if it is not the first message
                     {
@@ -326,7 +328,7 @@ public class siplog
                         if (getcallid == true)
                         {
                             // copy from msg input to arrayout
-                            String[] arrayout = new String[9];
+                            String[] arrayout = new String[10];
                             arrayout[0] = messagesinput[i][1];//  date [0]
                             arrayout[1] = messagesinput[i][2];//  time [1]
                             arrayout[2] = messagesinput[i][7];//  To: [2]
@@ -336,12 +338,14 @@ public class siplog
                             arrayout[6] = messagesinput[i][3];//  src IP [6]
                             arrayout[7] = messagesinput[i][4];//  dst ip [7]
                             arrayout[8] = "filtered";
+                            if (messagesinput[i][5].Contains("NOTIFY")) { arrayout[9] = "notify"; }else { arrayout[9] = ""; }
                             if (messagesinput[i][6] != null) { listout.Add(arrayout); }
+
                         }
                     }
                     else
                     {
-                        String[] arrayout = new String[9];
+                        String[] arrayout = new String[10];
                         arrayout[0] = messagesinput[i][1];//  date [0]
                         arrayout[1] = messagesinput[i][2];//  time [1]
                         arrayout[2] = messagesinput[i][7];//  To: [2]
@@ -351,6 +355,7 @@ public class siplog
                         arrayout[6] = messagesinput[i][3];//  src IP [6]
                         arrayout[7] = messagesinput[i][4];//  dst ip [7]
                         arrayout[8] = "filtered";
+                        if (messagesinput[i][5].Contains("NOTIFY")) { arrayout[9] = "notify"; } else { arrayout[9] = ""; }
                         if (messagesinput[i][6] != null) { listout.Add(arrayout); }
                     }
                 }
@@ -371,7 +376,7 @@ public class siplog
             Console.BufferHeight = 10 + callLegs.Count;
         }
 
-        Console.WriteLine("Press [Spacebar] to select calls. Press [Enter] for call flow diagram. Press [F] to filter the calls . Press [S] to search all SIP msgs. Press [Esc] to quit.");
+        Console.WriteLine("[Spacebar] to select calls. [Enter] for call flow diagram. [F] to filter the calls. [S] to search all SIP msgs. [Esc] to quit. [N] to toggle NOTIFYs");
         Console.WriteLine("{0,-2} {1,-6} {2,-10} {3,-12} {4,-45} {5,-45} {6,-16} {7,-16}", "*", "index", "date", "time", "from:", "to:", "src IP", "dst IP");
         Console.WriteLine(new String('-', 160));
         int i = 0;
@@ -403,11 +408,15 @@ public class siplog
         int selected = 0;
         bool done = false;
         int position = 0;
+        bool notify = false;
         String[] filter = new String[20];
         List<string[]> callLegsFiltered = new List<string[]>();
         for (int i = 0; i < callLegs.Count; i++)
         {
-            if (callLegs[i][8] == "filtered") { callLegsFiltered.Add(callLegs[i]); }
+            if (callLegs[i][8] == "filtered")
+            {
+                if ((!notify && callLegs[i][9] != "notify") || (notify && callLegs[i][9] == "notify")) { callLegsFiltered.Add(callLegs[i]); }
+            }
         }
         callDisplay(callLegsFiltered);
         Console.WriteLine("Number of SIP messages found : " + messages.Count);
@@ -510,7 +519,36 @@ public class siplog
 
                 }
             }
-            if (keypressed.Key == ConsoleKey.Escape) { Console.Clear(); System.Environment.Exit(0); }
+            if (keypressed.Key == ConsoleKey.Escape)
+            {
+                Console.WriteLine("                                           ");
+                Console.WriteLine("  +-------------------------------------+  ");
+                Console.WriteLine("  |  Are you sure you wantto quit? Y/N? |  ");
+                Console.WriteLine("  +-------------------------------------+  ");
+                Console.WriteLine("                                           ");
+                switch (Console.ReadKey(true).Key)
+                {
+                    case ConsoleKey.Y :
+                        Console.Clear(); System.Environment.Exit(0);
+                        break;
+                    case ConsoleKey.N :
+                        callDisplay(callLegsFiltered);
+                        Console.WriteLine("Number of SIP messages found : " + messages.Count);
+                        Console.WriteLine("Number of Call legs found : " + callLegs.Count);
+                        Console.WriteLine("Number of Call legs filtered : " + callLegsFiltered.Count);
+                        position = 0;
+                        Console.SetCursorPosition(0, 0);
+                        Console.SetCursorPosition(0, 3);
+                        Console.BackgroundColor = ConsoleColor.Gray;
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        callline(callLegsFiltered[position], position);
+                        Console.SetCursorPosition(0, 3);
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        break;
+                }
+            }
+                
             if (keypressed.Key == ConsoleKey.S)
             {
                 listallmsg(messages);
@@ -535,7 +573,7 @@ public class siplog
                 {
                     Console.WriteLine("                                                                                                                          ");
                     Console.WriteLine("  +------------------------------------------------------------------------------------------------------------------------------------+  ");
-                    Console.WriteLine("  | Enter space separated items like extensions, names or IP. Items are OR. Case sensitive. Leave blank for no Filter                  |  ");
+                    Console.WriteLine("  | Enter space separated items like extensions, names or IP. Items are OR. Case sensitive. Leave blank for no Filter.                 |  ");
                     Console.WriteLine("  |                                                                                                                                    |  ");
                     Console.WriteLine("  +------------------------------------------------------------------------------------------------------------------------------------+  ");
                     Console.WriteLine("                                                                                                                          ");
@@ -582,6 +620,31 @@ public class siplog
                         Console.CursorVisible = true;
                         Console.ReadKey(true);
                         Console.CursorTop = Console.CursorTop - 4;
+                    }
+                }
+                callDisplay(callLegsFiltered);
+                Console.WriteLine("Number of SIP messages found : " + messages.Count);
+                Console.WriteLine("Number of Call legs found : " + callLegs.Count);
+                Console.WriteLine("Number of Call legs filtered : " + callLegsFiltered.Count);
+                position = 0;
+                Console.SetCursorPosition(0, 0);
+                Console.SetCursorPosition(0, 3);
+                Console.BackgroundColor = ConsoleColor.Gray;
+                Console.ForegroundColor = ConsoleColor.Black;
+                callline(callLegsFiltered[position], position);
+                Console.SetCursorPosition(0, 3);
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+            if (keypressed.Key == ConsoleKey.N)
+            {
+                callLegsFiltered.Clear();
+                if (notify == false) { notify = true; } else { notify = false; }
+                for (int i = 0; i < callLegs.Count; i++)
+                {
+                    if (callLegs[i][8] == "filtered")
+                    {
+                        if ((!notify && callLegs[i][9] != "notify") || (notify && callLegs[i][9] == "notify")) { callLegsFiltered.Add(callLegs[i]); }
                     }
                 }
                 callDisplay(callLegsFiltered);
@@ -883,12 +946,14 @@ public class siplog
         int maxline = 0;
         bool done = false;
         int position = 0;
+        //string MsgLine;
+        int MsgLineLen;
         Console.Clear();
         Console.BufferWidth = 500;
         Console.BufferHeight = 32766;
         Console.SetCursorPosition(0, 0);
         Console.WriteLine("Enter regex to search. Max lines displayed are 32765. example: for all the msg to/from 10.28.160.42 at 16:40:11 use 16:40:11.*10.28.160.42");
-        Console.WriteLine("Data format: line number|date|time|src IP|dst IP|first line of SIP msg|Call-ID|To:|From:|line number|color|has SDP|filename|SDP IP|SDP port|SDP codec|useragent");
+        Console.WriteLine("Data format: line number|date|time|src IP|dst IP|first line of SIP msg|From:|To:|Call-ID|line number|color|has SDP|filename|SDP IP|SDP port|SDP codec|useragent");
         string strginput = Console.ReadLine();
         Console.Clear();
         Console.SetCursorPosition(0, 0);
@@ -904,9 +969,12 @@ public class siplog
             foreach (string[] ary in messages)
             {
                 if ((Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)) { break; }
-                if (regexinput.IsMatch(string.Join("|", ary)))
+                if (regexinput.IsMatch(string.Join(" ", ary)))
                 {
-                    Console.WriteLine(string.Join("|", ary));
+                    //MsgLine = string.Join("|", ary); 
+                    MsgLineLen = string.Join(" ", ary).Length + 28;
+                    if (MsgLineLen >= Console.BufferWidth) { Console.BufferWidth = MsgLineLen+1; }
+                    Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", ary);
                     filtered.Add(ary);
                     maxline++;
                     if (maxline > 32764) { break; }
@@ -915,7 +983,7 @@ public class siplog
             Console.SetCursorPosition(0, 0);
             Console.BackgroundColor = ConsoleColor.DarkGray;
             Console.ForegroundColor = ConsoleColor.Black;
-            Console.WriteLine(string.Join("|", filtered[position]));
+            Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
             Console.CursorTop = Console.CursorTop - 1;
             Console.BackgroundColor = ConsoleColor.Black;
             Console.ForegroundColor = ConsoleColor.Gray;
@@ -931,11 +999,11 @@ public class siplog
                     {
                         Console.BackgroundColor = ConsoleColor.Black;
                         Console.ForegroundColor = ConsoleColor.Gray;
-                        Console.WriteLine(string.Join("|", filtered[position]));
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
                         position++;
                         Console.BackgroundColor = ConsoleColor.DarkGray;
                         Console.ForegroundColor = ConsoleColor.Black;
-                        Console.WriteLine(string.Join("|", filtered[position]));
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
                         Console.CursorTop = Console.CursorTop - 1;
                         Console.BackgroundColor = ConsoleColor.Black;
                         Console.ForegroundColor = ConsoleColor.Gray;
@@ -947,12 +1015,12 @@ public class siplog
                     {
                         Console.BackgroundColor = ConsoleColor.Black;
                         Console.ForegroundColor = ConsoleColor.Gray;
-                        Console.WriteLine(string.Join("|", filtered[position]));
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
                         position--;
                         Console.CursorTop = Console.CursorTop - 2;
                         Console.BackgroundColor = ConsoleColor.DarkGray;
                         Console.ForegroundColor = ConsoleColor.Black;
-                        Console.WriteLine(string.Join("|", filtered[position]));
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
                         Console.CursorTop = Console.CursorTop - 1;
                         Console.BackgroundColor = ConsoleColor.Black;
                         Console.ForegroundColor = ConsoleColor.Gray;
@@ -967,12 +1035,12 @@ public class siplog
                     Console.SetCursorPosition(0, 0);
                     foreach (string[] line in filtered)
                     {
-                        Console.WriteLine(string.Join("|", line));
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", line);
                     }
                     Console.SetCursorPosition(0, position);
                     Console.BackgroundColor = ConsoleColor.DarkGray;
                     Console.ForegroundColor = ConsoleColor.Black;
-                    Console.WriteLine(string.Join("|", filtered[position]));
+                    Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
                     Console.CursorTop = Console.CursorTop - 1;
                     Console.BackgroundColor = ConsoleColor.Black;
                     Console.ForegroundColor = ConsoleColor.Gray;
