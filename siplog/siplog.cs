@@ -56,7 +56,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.2                                          Greg Palmer");
+            Console.WriteLine("Version 1.3                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -143,11 +143,11 @@ public class siplog
     static List<string[]> findmessages(String[] arg)
     {
         Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
-        string callidRgx = @"(?<=\sCall-ID:).*";
-        string toRgx = @"(?<=\sTo:).*";
-        string fromRgx = @"(?<=\sFrom:).*";
-        string uaRgx = @"(?<=\sUser-Agent:).*";
-        string serverRgx = @"(?<=\sServer:).*";
+        string callidRgx = @"(?<=Call-ID:).*";
+        string toRgx = @"(?<=To:).*";
+        string fromRgx = @"(?<=From:).*";
+        string uaRgx = @"(?<=User-Agent:).*";
+        string serverRgx = @"(?<=Server:).*";
         string portRgx = @"(?<=m=audio )\d*";
         string codecRgx = @"(?<=RTP\/AVP )\d*";
 
@@ -206,8 +206,8 @@ public class siplog
 
                         line = sread.ReadLine();
                         filelinenum++;
-                        //while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
-                        while (!line.Contains("ethertype IPv4")) //Contains instead of regex speeds things up
+                        while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
+                        //while (!line.Contains("ethertype IPv4")) //Contains instead of regex speeds things up
                         {
                             bool foundline = false; // no need to read check every match if one matches  
                             if (!foundline && line.Contains("SIP/2.0") && !siptwofound)
