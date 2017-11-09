@@ -415,8 +415,14 @@ public class siplog
         {
             if (callLegs[i][8] == "filtered")
             {
-                if ((!notify && callLegs[i][9] != "notify") || (notify && callLegs[i][9] == "notify")) { callLegsFiltered.Add(callLegs[i]); }
+                if (notify || (!notify && callLegs[i][9] != "notify")) { callLegsFiltered.Add(callLegs[i]); }
             }
+        }
+        if (callLegsFiltered.Count == 0)
+        {
+            Console.WriteLine("NO Matches found. Press any key to continue");
+            Console.ReadKey(true);
+            return;
         }
         callDisplay(callLegsFiltered);
         Console.WriteLine("Number of SIP messages found : " + messages.Count);
@@ -644,8 +650,14 @@ public class siplog
                 {
                     if (callLegs[i][8] == "filtered")
                     {
-                        if ((!notify && callLegs[i][9] != "notify") || (notify && callLegs[i][9] == "notify")) { callLegsFiltered.Add(callLegs[i]); }
+                        if (notify || (!notify && callLegs[i][9] != "notify")) { callLegsFiltered.Add(callLegs[i]); }
                     }
+                }
+                if (callLegsFiltered.Count == 0)
+                {
+                    Console.WriteLine("NO Matches found. Press any key to continue");
+                    Console.ReadKey(true);
+                    return;
                 }
                 callDisplay(callLegsFiltered);
                 Console.WriteLine("Number of SIP messages found : " + messages.Count);
@@ -979,6 +991,12 @@ public class siplog
                     maxline++;
                     if (maxline > 32764) { break; }
                 }
+            }
+            if (filtered.Count == 0)
+            {
+                Console.WriteLine("NO Matches found. Press any key to continue");
+                Console.ReadKey(true);
+                return;
             }
             Console.SetCursorPosition(0, 0);
             Console.BackgroundColor = ConsoleColor.DarkGray;
