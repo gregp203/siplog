@@ -56,7 +56,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.4                                          Greg Palmer");
+            Console.WriteLine("Version 1.5                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -284,7 +284,7 @@ public class siplog
                         outputarray[10] = "ConsoleColor.Gray";
                         outputarray[12] = file; //add file name to dataset 
                         if (outputarray[5] == null) { outputarray[5] = "Invalid SIP characters"; }
-                        outputlist.Add(outputarray);
+                        if (sipTwoDotOfound) { outputlist.Add(outputarray); }
                     }
                     else
                     {
@@ -365,7 +365,8 @@ public class siplog
     static void callDisplay(List<string[]> callLegs)
     {
         Console.Clear();
-        if (Console.LargestWindowWidth > 161) { Console.WindowWidth = 161; }
+        Console.WindowWidth = Math.Min( 161, Console.LargestWindowWidth);
+        Console.WindowHeight = Math.Min(44, Console.LargestWindowHeight);
         Console.BufferWidth = 200;
         Console.SetCursorPosition(0, 0);
         if (callLegs.Count > Console.WindowHeight)
@@ -379,7 +380,7 @@ public class siplog
         int i = 0;
         foreach (String[] ary in callLegs)
         {
-
+            if ((Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)) { break; }
             callline(ary, i);
             i++;
         }
@@ -447,7 +448,38 @@ public class siplog
                     Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
                     Console.ForegroundColor = ConsoleColor.Black;
                     callline(callLegsFiltered[position], position);
-                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.CursorTop -= 1;
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+            }
+            if (keypressed.Key == ConsoleKey.PageDown)
+            {
+                if (position + 40 < callLegsFiltered.Count - 1)
+                {
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop += 39;
+                    position += 40 ;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop -= 1;
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+                else
+                {
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop = callLegsFiltered.Count - 1 + 3;
+                    position = callLegsFiltered.Count - 1;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop -= 1;
                     Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
                     Console.ForegroundColor = ConsoleColor.Gray;
                 }
@@ -459,12 +491,12 @@ public class siplog
                     Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
                     Console.ForegroundColor = ConsoleColor.Gray;
                     callline(callLegsFiltered[position], position);
-                    Console.CursorTop = Console.CursorTop - 2;     //move cursor up two since writline advances one
-                    position--;
+                    Console.CursorTop -= 2;     //move cursor up two since writline advances one
+                    position --;
                     Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
                     Console.ForegroundColor = ConsoleColor.Black;
                     callline(callLegsFiltered[position], position);
-                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.CursorTop -= 1;
                     Console.BackgroundColor = ConsoleColor.Black; //change the colors of the current postion to normal
                     Console.ForegroundColor = ConsoleColor.Gray;
                 }
@@ -473,6 +505,43 @@ public class siplog
                     Console.SetCursorPosition(0, 0);
                     Console.SetCursorPosition(0, 3);
                 }
+            }
+            if (keypressed.Key == ConsoleKey.PageUp)
+            {
+                if (position  > 39)
+                {
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop  -= 41;     //move cursor up two since writline advances one
+                    position -= 40;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop -= 1;
+                    Console.BackgroundColor = ConsoleColor.Black; //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+                else
+                {
+                    Console.BackgroundColor = ConsoleColor.Black;  //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop = 3;     //move cursor up two since writline advances one
+                    position = 0;
+                    Console.BackgroundColor = ConsoleColor.DarkGray;   //change the colors of the current postion to inverted
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    callline(callLegsFiltered[position], position);
+                    Console.CursorTop -= 1;
+                    Console.BackgroundColor = ConsoleColor.Black; //change the colors of the current postion to normal
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                }
+                if (position == 0)
+                {
+                    Console.SetCursorPosition(0, 0);
+                    Console.SetCursorPosition(0, 3);
+                }
+
             }
             if (keypressed.Key == ConsoleKey.Spacebar)
             {
@@ -584,8 +653,8 @@ public class siplog
                     Console.WriteLine("  |                                                                                                                                    |  ");
                     Console.WriteLine("  +------------------------------------------------------------------------------------------------------------------------------------+  ");
                     Console.WriteLine("                                                                                                                          ");
-                    Console.CursorTop = Console.CursorTop - 3;
-                    Console.CursorLeft = Console.CursorLeft + 4;
+                    Console.CursorTop -= 3;
+                    Console.CursorLeft += 4;
                     filter = Console.ReadLine().Split(' ');
                     bool foundcalls = false;
                     if (!string.IsNullOrEmpty(filter[0]))
@@ -626,7 +695,7 @@ public class siplog
                         Console.ForegroundColor = ConsoleColor.Gray;
                         Console.CursorVisible = true;
                         Console.ReadKey(true);
-                        Console.CursorTop = Console.CursorTop - 4;
+                        Console.CursorTop -= 4;
                     }
                 }
                 callDisplay(callLegsFiltered);
@@ -860,7 +929,7 @@ public class siplog
         Console.SetCursorPosition(0, 0);   //brings window to the very top
         Console.SetCursorPosition(0, 3);
         messageline(selectedmessages[0], ips, true);
-        Console.CursorTop = Console.CursorTop - 1;
+        Console.CursorTop -= 1;
 
         bool done = false;
         while (done == false)
@@ -873,7 +942,26 @@ public class siplog
                     messageline(selectedmessages[position], ips, false);
                     position++;
                     messageline(selectedmessages[position], ips, true);
-                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.CursorTop -= 1;
+                }
+            }
+            if (keypress.Key == ConsoleKey.PageDown)
+            {
+                if (position + 40 < selectedmessages.Count - 1)
+                {
+                    messageline(selectedmessages[position], ips, false);
+                    position += 40;
+                    Console.CursorTop += 39;
+                    messageline(selectedmessages[position], ips, true);
+                    Console.CursorTop -= 1;
+                }
+                else
+                {
+                    messageline(selectedmessages[position], ips, false);
+                    position = selectedmessages.Count - 1;
+                    Console.CursorTop = selectedmessages.Count - 1 + 3;
+                    messageline(selectedmessages[position], ips, true);
+                    Console.CursorTop -= 1;
                 }
             }
             if (keypress.Key == ConsoleKey.UpArrow)
@@ -881,12 +969,36 @@ public class siplog
                 if (position > 0)
                 {
                     messageline(selectedmessages[position], ips, false);
-                    Console.CursorTop = Console.CursorTop - 2;
+                    Console.CursorTop -= 2;
                     position--;
                     messageline(selectedmessages[position], ips, true);
-                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.CursorTop -= 1;
                 }
                 else
+                {
+                    Console.SetCursorPosition(0, 0);   //brings window to the very top
+                    Console.SetCursorPosition(0, 3);
+                }
+            }
+            if (keypress.Key == ConsoleKey.PageUp)
+            {
+                if (position > 39)
+                {
+                    messageline(selectedmessages[position], ips, false);
+                    Console.CursorTop -= 41;
+                    position -= 40;
+                    messageline(selectedmessages[position], ips, true);
+                    Console.CursorTop -= 1;
+                }
+                else
+                {
+                    messageline(selectedmessages[position], ips, false);
+                    Console.CursorTop = 3;
+                    position = 0;
+                    messageline(selectedmessages[position], ips, true);
+                    Console.CursorTop -= 1;
+                }
+                if (position == 0)
                 {
                     Console.SetCursorPosition(0, 0);   //brings window to the very top
                     Console.SetCursorPosition(0, 3);
@@ -904,14 +1016,14 @@ public class siplog
                     Console.SetCursorPosition(0, 0);   //brings window to the very top
                     Console.SetCursorPosition(0, 3);
                     messageline(selectedmessages[0], ips, true);
-                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.CursorTop -= 1;
                 }
                 else
                 {
                     Console.SetCursorPosition(0, (position > 17) ? position - 17 : 0);
                     Console.SetCursorPosition(0, position + 3);
                     messageline(selectedmessages[position], ips, true);
-                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.CursorTop -= 1;
                 }
             }
             if (keypress.Key == ConsoleKey.Escape)
@@ -967,7 +1079,6 @@ public class siplog
         int MsgLineLen;
         Console.Clear();
         Console.BufferWidth = 500;
-        Console.BufferHeight = 32766;
         Console.SetCursorPosition(0, 0);
         Console.WriteLine("Enter regex to search. Max lines displayed are 32765. example: for all the msg to/from 10.28.160.42 at 16:40:11 use 16:40:11.*10.28.160.42");
         Console.WriteLine("Data format: line number|date|time|src IP|dst IP|first line of SIP msg|From:|To:|Call-ID|line number|color|has SDP|filename|SDP IP|SDP port|SDP codec|useragent");
@@ -994,6 +1105,7 @@ public class siplog
                     Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", ary);
                     filtered.Add(ary);
                     maxline++;
+                    if (maxline > Console.BufferHeight) { Console.BufferHeight += maxline + 10; }
                     if (maxline > 32764) { break; }
                 }
             }
@@ -1007,7 +1119,7 @@ public class siplog
             Console.BackgroundColor = ConsoleColor.DarkGray;
             Console.ForegroundColor = ConsoleColor.Black;
             Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
-            Console.CursorTop = Console.CursorTop - 1;
+            Console.CursorTop -= 1;
             Console.BackgroundColor = ConsoleColor.Black;
             Console.ForegroundColor = ConsoleColor.Gray;
         }
@@ -1027,7 +1139,25 @@ public class siplog
                         Console.BackgroundColor = ConsoleColor.DarkGray;
                         Console.ForegroundColor = ConsoleColor.Black;
                         Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
-                        Console.CursorTop = Console.CursorTop - 1;
+                        Console.CursorTop -= 1;
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                    }
+                    break;
+
+                case ConsoleKey.PageDown:
+
+                    if (position + 40 < filtered.Count - 1)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
+                        Console.CursorTop += 39;
+                        position += 40;
+                        Console.BackgroundColor = ConsoleColor.DarkGray;
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
+                        Console.CursorTop -= 1;
                         Console.BackgroundColor = ConsoleColor.Black;
                         Console.ForegroundColor = ConsoleColor.Gray;
                     }
@@ -1040,11 +1170,27 @@ public class siplog
                         Console.ForegroundColor = ConsoleColor.Gray;
                         Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
                         position--;
-                        Console.CursorTop = Console.CursorTop - 2;
+                        Console.CursorTop -= 2;
                         Console.BackgroundColor = ConsoleColor.DarkGray;
                         Console.ForegroundColor = ConsoleColor.Black;
                         Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
-                        Console.CursorTop = Console.CursorTop - 1;
+                        Console.CursorTop -= 1;
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                    }
+                    break;
+                case ConsoleKey.PageUp:
+                    if (position > 39)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Black;
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
+                        position-= 40;
+                        Console.CursorTop -= 41;
+                        Console.BackgroundColor = ConsoleColor.DarkGray;
+                        Console.ForegroundColor = ConsoleColor.Black;
+                        Console.WriteLine("{0,-7}{1,-11}{2,-16}{3,-16}{4,-16}{5} From:{8} To:{7} {6} {9} {10} {11} {12} {13} {14} {15} {16}", filtered[position]);
+                        Console.CursorTop -= 1;
                         Console.BackgroundColor = ConsoleColor.Black;
                         Console.ForegroundColor = ConsoleColor.Gray;
                     }
@@ -1054,7 +1200,7 @@ public class siplog
                     displaymessage(position, filtered);
                     Console.Clear();
                     Console.BufferWidth = 500;
-                    Console.BufferHeight = 32766;
+                    Console.BufferHeight = filtered.Count + 10;
                     Console.SetCursorPosition(0, 0);
                     foreach (string[] line in filtered)
                     {
