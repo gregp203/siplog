@@ -56,7 +56,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.3                                          Greg Palmer");
+            Console.WriteLine("Version 1.4                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -118,10 +118,13 @@ public class siplog
                 Console.ForegroundColor = ConsoleColor.White;
                 Console.WriteLine("\nNo Calls were found that start with an INVITE");
                 Console.ForegroundColor = ConsoleColor.Gray;
-                Console.WriteLine("Press any key to search SIP messages");
-                Console.ReadKey(true);
-                listallmsg(messages);
-
+                Console.WriteLine("Press any key to search SIP messages or press [esc] to quit");
+                while (Console.ReadKey(true).Key != ConsoleKey.Escape)
+                {
+                    listallmsg(messages);
+                    Console.WriteLine("Press any key to search SIP messages again or press [esc] to quit");
+                }
+                Environment.Exit(0);
             }
             callSelect(callLegs, messages);
         }
@@ -143,22 +146,36 @@ public class siplog
     static List<string[]> findmessages(String[] arg)
     {
         Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
-        string callidRgx = @"(?<=Call-ID:).*";
-        string toRgx = @"(?<=To:).*";
-        string fromRgx = @"(?<=From:).*";
-        string uaRgx = @"(?<=User-Agent:).*";
-        string serverRgx = @"(?<=Server:).*";
-        string portRgx = @"(?<=m=audio )\d*";
-        string codecRgx = @"(?<=RTP\/AVP )\d*";
+        string callidRgxStr = @"(?<!-.{8})(?<=Call-ID:).*";
+        string toRgxStr = @"(?<=To:).*";
+        string fromRgxStr = @"(?<=From:).*";
+        string uaRgxStr = @"(?<=User-Agent:).*";
+        string serverRgxStr = @"(?<=Server:).*";
+        string portRgxStr = @"(?<=m=audio )\d*";
+        string codecRgxStr = @"(?<=RTP\/AVP )\d*";
+        string SDPIPRgxStr = @"(?<=c=IN IP4 )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})";
+        string mAudioRgxStr = @"m=audio \d* RTP\/AVP \d*";
+        string occasRgxStr = @"(?<=Contact: ).*wlssuser";
+        Regex callidRgx = new Regex(callidRgxStr);
+        Regex toRgx = new Regex(toRgxStr);
+        Regex fromRgx = new Regex(fromRgxStr);
+        Regex uaRgx = new Regex(uaRgxStr);
+        Regex serverRgx = new Regex(serverRgxStr);
+        Regex portRgx = new Regex(portRgxStr);
+        Regex codecRgx = new Regex(codecRgxStr);
+        Regex SDPIPRgx = new Regex(SDPIPRgxStr);
+        Regex mAudioRgx = new Regex(mAudioRgxStr);
+        Regex occasRgx = new Regex(occasRgxStr);
 
-        //Contains instead of regex speeds things up
-        List<string[]> outputlist = new List<string[]>();
+        
+        List <string[]> outputlist = new List<string[]>();
         long progress = 0;
-        int argindx = 0;
+        
         foreach (string file in arg)
         {
             Console.WriteLine();
             long filelinecount = 0;
+            //count the number of lines in a file
             using (StreamReader sr = new StreamReader(file))
             {
                 string line;
@@ -190,83 +207,64 @@ public class siplog
 
 
 
-                    if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))  
-                    //if (!string.IsNullOrEmpty(line) && line.Contains("ethertype IPv4"))   //Contains instead of regex speeds things up 
-                    {
-
-
-                        bool siptwofound = false;
-                        bool uaservfound = false;
+                    if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))                      
+                    {                       
                         String[] outputarray = new String[17];
                         outputarray[0] = filelinenum.ToString(); // get the index of the start of the msg 
-                        outputarray[1] = Regex.Matches(line, @"(\d{4}-\d{2}-\d{2})")[0].ToString();                             //date                                 
-                        outputarray[2] = Regex.Matches(line, @"(\d{2}:\d{2}:\d{2}.\d{6})")[0].ToString();                       //time            
-                        outputarray[3] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[0].ToString();      //src IP                                                                        
+                        outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
+                        outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
+                        outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString();      //src IP                                                                        
                         outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP           
 
                         line = sread.ReadLine();
                         filelinenum++;
+
+                        //check to match these only once. no need match a field if it is already found
+                        bool sipTwoDotOfound = false;                        
+                        bool callidFound = false;
+                        bool toFound = false;
+                        bool fromFound = false;
+                        bool SDPFopund = false;
+                        bool SDPIPFound = false;
+                        bool mAudioFound = false;
+                        bool uaservfound = false;
+
                         while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
-                        //while (!line.Contains("ethertype IPv4")) //Contains instead of regex speeds things up
                         {
-                            bool foundline = false; // no need to read check every match if one matches  
-                            if (!foundline && line.Contains("SIP/2.0") && !siptwofound)
+                            
+                            if (!sipTwoDotOfound && line.Contains("SIP/2.0"))
                             {
                                 outputarray[5] = line.Trim();
-                                siptwofound = true;
-                                foundline = true;
+                                sipTwoDotOfound = true;                                
                             }
-                            if (!foundline && new Regex(callidRgx).IsMatch(line))
+                            else if (!callidFound && callidRgx.IsMatch(line)){outputarray[6] = callidRgx.Match(line).ToString().Trim(); callidFound = true; } // get call-id                    
+                            else if (!toFound && toRgx.IsMatch(line)){ outputarray[7] = toRgx.Match(line).ToString().Trim(); toFound = true; } // get to:                    
+                            else if (!fromFound && fromRgx.IsMatch(line)){outputarray[8] = fromRgx.Match(line).ToString().Trim(); fromFound = true; } //get from                    
+                            else if (!SDPFopund && line.Contains("Content-Type: application/sdp")){ outputarray[11] = " SDP"; SDPFopund = true; }
+                            else if (!SDPIPFound && SDPIPRgx.IsMatch(line)){outputarray[13] = SDPIPRgx.Match(line).ToString(); SDPIPFound = true; }
+                            else if (!mAudioFound && mAudioRgx.IsMatch(line))
                             {
-                                outputarray[6] = Regex.Matches(line, callidRgx)[0].ToString().Trim();
-                                foundline = true;
-                            } // get call-id                    
-                            if (!foundline && new Regex(toRgx).IsMatch(line))
-                            {
-                                outputarray[7] = Regex.Matches(line, toRgx)[0].ToString().Trim();
-                                foundline = true;
-                            } // get to:                    
-                            if (!foundline && new Regex(fromRgx).IsMatch(line))
-                            {
-                                outputarray[8] = Regex.Matches(line, fromRgx)[0].ToString().Trim();
-                                foundline = true;
-                            } //get from                    
-                            if (!foundline && line.Contains("Content-Type: application/sdp"))
-                            {
-                                outputarray[11] = " SDP";
-                                foundline = true;
-                            }
-                            if (!foundline && new Regex(@"c=IN IP4 (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").IsMatch(line))
-                            {
-                                outputarray[13] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[0].ToString();
-                                foundline = true;
-                            }
-                            if (!foundline && new Regex(@"m=audio \d* RTP\/AVP \d*").IsMatch(line))
-                            {
-                                outputarray[14] = Regex.Matches(line, portRgx)[0].ToString().Trim();
-                                outputarray[15] = Regex.Matches(line, codecRgx)[0].ToString().Trim();
+                                outputarray[14] = portRgx.Match(line).ToString().Trim();
+                                outputarray[15] = codecRgx.Match(line).ToString().Trim();
                                 if (outputarray[15] == "0") { outputarray[15] = "G711u"; }
                                 if (outputarray[15] == "8") { outputarray[15] = "G711a"; }
                                 if (outputarray[15] == "9") { outputarray[15] = "G722"; }
                                 if (outputarray[15] == "18") { outputarray[15] = "G729"; }
-                                foundline = true;
+                                mAudioFound = true;
                             }
-                            if (!foundline && !uaservfound && new Regex(uaRgx).IsMatch(line))
+                            else if (!uaservfound && uaRgx.IsMatch(line))
                             {
-                                outputarray[16] = Regex.Matches(line, uaRgx)[0].ToString().Trim();
+                                outputarray[16] = uaRgx.Match(line).ToString().Trim();
                                 uaservfound = true;
-                                foundline = true;
                             }
-                            if (!foundline && !uaservfound && new Regex(serverRgx).IsMatch(line))
+                            else if (!uaservfound && serverRgx.IsMatch(line))
                             {
-                                outputarray[16] = Regex.Matches(line, serverRgx)[0].ToString().Trim();
+                                outputarray[16] = serverRgx.Match(line).ToString().Trim();
                                 uaservfound = true;
-                                foundline = true;
                             }
-                            if (!foundline && !uaservfound && new Regex(@"(?<=\sContact: ).*wlssuser").IsMatch(line))
+                            else if (!uaservfound && occasRgx.IsMatch(line))
                             {
-                                outputarray[16] = "occas";
-                                foundline = true;
+                                outputarray[16] = "occas";                                
                             }
                             if (filelinenum >= filelinecount) { break; }
                             else
@@ -280,7 +278,6 @@ public class siplog
                                 Console.Write("!");
                                 progress = 0;
                             }
-
                         }
                         filelinenum--; // to counter the advancement of the for loop
                         outputarray[9] = filelinenum.ToString(); // get the index of the end of the msg*/
@@ -296,7 +293,7 @@ public class siplog
                 }
                 sread.Close();
             }
-            argindx++;
+            
             Console.CursorTop = Console.CursorTop + 2;
         }
         Console.WriteLine();
@@ -420,7 +417,7 @@ public class siplog
         }
         if (callLegsFiltered.Count == 0)
         {
-            Console.WriteLine("NO Matches found. Press any key to continue");
+            Console.WriteLine("No filtered Matches found. Press any key to continue");
             Console.ReadKey(true);
             return;
         }
@@ -557,7 +554,11 @@ public class siplog
                 
             if (keypressed.Key == ConsoleKey.S)
             {
-                listallmsg(messages);
+                do
+                {
+                    listallmsg(messages);
+                    Console.WriteLine("Press any key to search SIP messages again or press [esc] to quit");
+                } while (Console.ReadKey(true).Key != ConsoleKey.Escape);                    
                 callDisplay(callLegsFiltered);
                 Console.WriteLine("Number of SIP messages found : " + messages.Count);
                 Console.WriteLine("Number of Call legs found : " + callLegs.Count);
@@ -655,7 +656,7 @@ public class siplog
                 }
                 if (callLegsFiltered.Count == 0)
                 {
-                    Console.WriteLine("NO Matches found. Press any key to continue");
+                    Console.WriteLine("NO filtered matches found. Press any key to continue");
                     Console.ReadKey(true);
                     return;
                 }
@@ -733,6 +734,10 @@ public class siplog
     static void flow(List<string[]> selectedmessages, List<string> ips)
     {
         Console.Clear();
+        if (selectedmessages.Count > Console.WindowHeight)
+        {
+            Console.BufferHeight = Math.Min(10 + selectedmessages.Count,Int16.MaxValue-1);
+        }
         int width = 24;
         Console.Write(new String(' ', 17));
         foreach (string ip in ips)
@@ -850,7 +855,7 @@ public class siplog
 
         Console.BackgroundColor = ConsoleColor.Black;
         Console.ForegroundColor = ConsoleColor.Gray;
-        if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = selectedmessages.Count + 20; }
+        if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = Math.Min(selectedmessages.Count + 20, Int16.MaxValue - 1); }
         flow(selectedmessages, ips);  //display call flow Diaggram
         Console.SetCursorPosition(0, 0);   //brings window to the very top
         Console.SetCursorPosition(0, 3);
@@ -892,7 +897,7 @@ public class siplog
                 displaymessage(position, selectedmessages);
                 Console.BackgroundColor = ConsoleColor.Black;
                 Console.ForegroundColor = ConsoleColor.Gray;
-                if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = selectedmessages.Count + 20; }
+                if (selectedmessages.Count > Console.BufferHeight) { Console.BufferHeight = Math.Min(selectedmessages.Count + 20, Int16.MaxValue - 1); }
                 flow(selectedmessages, ips);  //display call flow Diaggram
                 if (position == 0)
                 {
@@ -922,7 +927,7 @@ public class siplog
         Console.Clear();
         if ((Int32.Parse(messages[msgindxselected][9]) - Int32.Parse(messages[msgindxselected][0])) > Console.BufferHeight)
         {
-            Console.BufferHeight = 5 + (Int32.Parse(messages[msgindxselected][9]) - Int32.Parse(messages[msgindxselected][0]));
+            Console.BufferHeight = Math.Min(5 + (Int32.Parse(messages[msgindxselected][9]) - Int32.Parse(messages[msgindxselected][0])), Int16.MaxValue - 1);
         }
         Console.WriteLine("From line " + messages[msgindxselected][0] + " to " + messages[msgindxselected][9] + " from file " + messages[msgindxselected][12]);
         using (StreamReader sr = new StreamReader(messages[msgindxselected][12]))
@@ -994,7 +999,7 @@ public class siplog
             }
             if (filtered.Count == 0)
             {
-                Console.WriteLine("NO Matches found. Press any key to continue");
+                Console.WriteLine("NO search matches found. Press any key to continue");
                 Console.ReadKey(true);
                 return;
             }
