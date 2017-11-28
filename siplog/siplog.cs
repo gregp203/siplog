@@ -53,7 +53,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.6                                          Greg Palmer");
+            Console.WriteLine("Version 1.7                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -314,15 +314,15 @@ public class siplog
                     {
                         // copy from msg input to arrayout
                         String[] arrayout = new String[10];
-                        arrayout[0] = messagesinput[i][1];//  date [0]
-                        arrayout[1] = messagesinput[i][2];//  time [1]
-                        arrayout[2] = messagesinput[i][7];//  To: [2]
-                        arrayout[3] = messagesinput[i][8];//  From: [3]
-                        arrayout[4] = messagesinput[i][6];//  Call-ID [4]
+                        arrayout[0] = messagesinput[i][1] ?? String.Empty;//  date [0]
+                        arrayout[1] = messagesinput[i][2] ?? String.Empty;//  time [1]
+                        arrayout[2] = messagesinput[i][7] ?? String.Empty;//  To: [2]
+                        arrayout[3] = messagesinput[i][8] ?? String.Empty;//  From: [3]
+                        arrayout[4] = messagesinput[i][6] ?? String.Empty;//  Call-ID [4]
                         arrayout[5] = " ";                //  selected [5]  " " = not selected
-                        arrayout[6] = messagesinput[i][3];//  src IP [6]
-                        arrayout[7] = messagesinput[i][4];//  dst ip [7]
-                        arrayout[8] = "filtered";
+                        arrayout[6] = messagesinput[i][3] ?? String.Empty;//  src IP [6]
+                        arrayout[7] = messagesinput[i][4] ?? String.Empty;//  dst ip [7]
+                        if (messagesinput[i][5].Contains("INVITE")) { arrayout[8] = "invite"; } else { arrayout[8] = ""; }
                         if (messagesinput[i][5].Contains("NOTIFY")) { arrayout[9] = "notify"; } else { arrayout[9] = ""; }
                         if (messagesinput[i][6] != null) { listout.Add(arrayout); }
 
@@ -356,18 +356,18 @@ public class siplog
         }
     }
 
-    static void callline(string[] callLeg, int indx)
+    static void callline(string[] InputCallLegs, int indx)
     {
-        if (callLeg[5] == "*") { Console.ForegroundColor = ConsoleColor.Cyan; }
+        if (InputCallLegs[5] == "*") { Console.ForegroundColor = ConsoleColor.Cyan; }
         Console.WriteLine("{0,-2} {1,-6} {2,-10} {3,-12} {5,-45} {4,-45} {6,-16} {7,-17}"
-            , callLeg[5]
+            , InputCallLegs[5]
             , indx
-            , callLeg[0]
-            , callLeg[1].Substring(0, 11)
-            , callLeg[2].Split('@')[0].Substring(0, Math.Min(44, callLeg[2].Split('@')[0].Length))
-            , callLeg[3].Split('@')[0].Substring(0, Math.Min(44, callLeg[3].Split('@')[0].Length))
-            , callLeg[6]
-            , callLeg[7]);
+            , InputCallLegs[0]
+            , ((InputCallLegs[1]).Substring(0, 11)) ?? String.Empty
+            , (InputCallLegs[2].Split('@')[0].Substring(0, Math.Min(44, InputCallLegs[2].Split('@')[0].Length))) ?? String.Empty
+            , (InputCallLegs[3].Split('@')[0].Substring(0, Math.Min(44, InputCallLegs[3].Split('@')[0].Length))) ?? String.Empty
+            , InputCallLegs[6] 
+            , InputCallLegs[7] );
         Console.ForegroundColor = ConsoleColor.Gray;
     }
 
@@ -381,10 +381,7 @@ public class siplog
         List<string[]> callLegsFiltered = new List<string[]>();
         for (int i = 0; i < callLegs.Count; i++)
         {
-            if (callLegs[i][8] == "filtered")
-            {
-                if (notify || (!notify && callLegs[i][9] != "notify")) { callLegsFiltered.Add(callLegs[i]); }
-            }
+            if (callLegs[i][8] == "invite") { callLegsFiltered.Add(callLegs[i]); }
         }
         if (callLegsFiltered.Count == 0)
         {
@@ -629,34 +626,34 @@ public class siplog
                     if (!string.IsNullOrEmpty(filter[0]))
                     {
                         for (int i = 0; i < callLegs.Count; i++)
-                        {
-                            bool addcall = false;
-                            foreach (String callitem in callLegs[i])
+                        {                            
+                            for (int j = 0; j < callLegs[i].Length; j++)
                             {
-                                foreach (String filteritem in filter)
+                                String callitem = callLegs[i][j];
+                                for(int k = 0; k < filter.Length; k++)
                                 {
-                                    if (callitem.Contains(filteritem)) { addcall = true; }
+                                    if (callLegs[i][8] == "invite")
+                                    {
+                                        String filteritem = filter[k];
+                                        if (callitem.Contains(filteritem)) { callLegsFiltered.Add(callLegs[i]); break; }
+                                    }
+                                    if (notify && callLegs[i][9] == "notify")
+                                    {
+                                        String filteritem = filter[k];
+                                        if (callitem.Contains(filteritem)) { callLegsFiltered.Add(callLegs[i]); break; }
+                                    }
                                 }
-                            }
-                            if (addcall) { callLegs[i][8] = "filtered"; foundcalls = true; } else { callLegs[i][8] = ""; }
+                            }                            
                         }
                     }
                     else
                     {
                         for (int i = 0; i < callLegs.Count; i++)
                         {
-                            callLegs[i][8] = "filtered";
-                            foundcalls = true;
+                            if (callLegs[i][8] == "invite") { callLegsFiltered.Add(callLegs[i]); }
                         }
                     }
-                    if (foundcalls)
-                    {
-                        for (int i = 0; i < callLegs.Count; i++)
-                        {
-                            if (callLegs[i][8] == "filtered") { callLegsFiltered.Add(callLegs[i]); }
-                        }
-                    }
-                    else
+                    if (callLegsFiltered.Count == 0)
                     {
                         Console.ForegroundColor = ConsoleColor.White;
                         Console.CursorTop = Console.CursorTop - 1;
@@ -687,9 +684,13 @@ public class siplog
                 if (notify == false) { notify = true; } else { notify = false; }
                 for (int i = 0; i < callLegs.Count; i++)
                 {
-                    if (callLegs[i][8] == "filtered")
+                    if (callLegs[i][8] == "invite")
                     {
-                        if (notify || (!notify && callLegs[i][9] != "notify")) { callLegsFiltered.Add(callLegs[i]); }
+                        callLegsFiltered.Add(callLegs[i]); 
+                    }
+                    if (notify && callLegs[i][9] == "notify")
+                    {
+                        callLegsFiltered.Add(callLegs[i]); 
                     }
                 }
                 if (callLegsFiltered.Count == 0)
