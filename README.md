@@ -8,7 +8,6 @@ it determines the end of the message when it matches the begining of the next me
 The array for each message:
 
 the line number of the fie for first line of the SIP message [0]
-
 date[1] 
 time[2]
 src IP[3]
