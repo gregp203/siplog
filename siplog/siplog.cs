@@ -13,11 +13,8 @@ public class siplog
     {
         try
         {
-
-
             List<string[]> messages = new List<string[]>();
             List<string[]> callLegs = new List<string[]>();
-
             if (arg.Length == 0)
             {
                 Console.ForegroundColor = ConsoleColor.White;
@@ -56,7 +53,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.5                                          Greg Palmer");
+            Console.WriteLine("Version 1.6                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -65,8 +62,6 @@ public class siplog
                 Console.ForegroundColor = ConsoleColor.Gray;
                 Environment.Exit(1);
             }
-
-
             messages = findmessages(arg);      //find SIP messages output to List<string[]> with 
                                                //  index start of msg[0], 
                                                //  date[1] 
@@ -93,7 +88,6 @@ public class siplog
             {
                 if (line == null) { Console.Write("found null"); }
             }
-
             if (messages.Count == 0)
             {
                 Console.ForegroundColor = ConsoleColor.White;
@@ -101,7 +95,6 @@ public class siplog
                 Console.ForegroundColor = ConsoleColor.Gray;
                 Environment.Exit(1);
             }
-
             callLegs = findCallLegs(messages);      //find all call legs
                                                     //  date [0]
                                                     //  time [1]
@@ -141,11 +134,10 @@ public class siplog
         }
     }
 
-
-
     static List<string[]> findmessages(String[] arg)
     {
         Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
+        string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0\|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
         string callidRgxStr = @"(?<!-.{8})(?<=Call-ID:).*";
         string toRgxStr = @"(?<=To:).*";
         string fromRgxStr = @"(?<=From:).*";
@@ -156,6 +148,7 @@ public class siplog
         string SDPIPRgxStr = @"(?<=c=IN IP4 )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})";
         string mAudioRgxStr = @"m=audio \d* RTP\/AVP \d*";
         string occasRgxStr = @"(?<=Contact: ).*wlssuser";
+        Regex requestRgx = new Regex(requestRgxStr);
         Regex callidRgx = new Regex(callidRgxStr);
         Regex toRgx = new Regex(toRgxStr);
         Regex fromRgx = new Regex(fromRgxStr);
@@ -165,12 +158,9 @@ public class siplog
         Regex codecRgx = new Regex(codecRgxStr);
         Regex SDPIPRgx = new Regex(SDPIPRgxStr);
         Regex mAudioRgx = new Regex(mAudioRgxStr);
-        Regex occasRgx = new Regex(occasRgxStr);
-
-        
+        Regex occasRgx = new Regex(occasRgxStr);        
         List <string[]> outputlist = new List<string[]>();
-        long progress = 0;
-        
+        long progress = 0;        
         foreach (string file in arg)
         {
             Console.WriteLine();
@@ -204,9 +194,6 @@ public class siplog
                         Console.Write("!");
                         progress = 0;
                     }
-
-
-
                     if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))                      
                     {                       
                         String[] outputarray = new String[17];
@@ -214,11 +201,9 @@ public class siplog
                         outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
                         outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
                         outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString();      //src IP                                                                        
-                        outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP           
-
+                        outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP  
                         line = sread.ReadLine();
                         filelinenum++;
-
                         //check to match these only once. no need match a field if it is already found
                         bool sipTwoDotOfound = false;                        
                         bool callidFound = false;
@@ -228,13 +213,12 @@ public class siplog
                         bool SDPIPFound = false;
                         bool mAudioFound = false;
                         bool uaservfound = false;
-
                         while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
                         {
                             
-                            if (!sipTwoDotOfound && line.Contains("SIP/2.0"))
+                            if (!sipTwoDotOfound && requestRgx.IsMatch(line))
                             {
-                                outputarray[5] = line.Trim();
+                                outputarray[5] = requestRgx.Match(line).ToString().Trim();
                                 sipTwoDotOfound = true;                                
                             }
                             else if (!callidFound && callidRgx.IsMatch(line)){outputarray[6] = callidRgx.Match(line).ToString().Trim(); callidFound = true; } // get call-id                    
@@ -293,7 +277,6 @@ public class siplog
                 }
                 sread.Close();
             }
-            
             Console.CursorTop = Console.CursorTop + 2;
         }
         Console.WriteLine();
@@ -322,26 +305,14 @@ public class siplog
                                 break;
                             }
                         }
-                        if (getcallid == true)
-                        {
-                            // copy from msg input to arrayout
-                            String[] arrayout = new String[10];
-                            arrayout[0] = messagesinput[i][1];//  date [0]
-                            arrayout[1] = messagesinput[i][2];//  time [1]
-                            arrayout[2] = messagesinput[i][7];//  To: [2]
-                            arrayout[3] = messagesinput[i][8];//  From: [3]
-                            arrayout[4] = messagesinput[i][6];//  Call-ID [4]
-                            arrayout[5] = " ";                //  selected [5]  " " = not selected
-                            arrayout[6] = messagesinput[i][3];//  src IP [6]
-                            arrayout[7] = messagesinput[i][4];//  dst ip [7]
-                            arrayout[8] = "filtered";
-                            if (messagesinput[i][5].Contains("NOTIFY")) { arrayout[9] = "notify"; }else { arrayout[9] = ""; }
-                            if (messagesinput[i][6] != null) { listout.Add(arrayout); }
-
-                        }
                     }
                     else
                     {
+                        getcallid = true;
+                    }
+                    if (getcallid == true)
+                    {
+                        // copy from msg input to arrayout
                         String[] arrayout = new String[10];
                         arrayout[0] = messagesinput[i][1];//  date [0]
                         arrayout[1] = messagesinput[i][2];//  time [1]
@@ -354,11 +325,11 @@ public class siplog
                         arrayout[8] = "filtered";
                         if (messagesinput[i][5].Contains("NOTIFY")) { arrayout[9] = "notify"; } else { arrayout[9] = ""; }
                         if (messagesinput[i][6] != null) { listout.Add(arrayout); }
+
                     }
                 }
             }
         }
-        Console.WriteLine();
         return listout;
     }
 
@@ -373,7 +344,6 @@ public class siplog
         {
             Console.BufferHeight = 10 + callLegs.Count;
         }
-
         Console.WriteLine("[Spacebar] to select calls. [Enter] for call flow diagram. [F] to filter the calls. [S] to search all SIP msgs. [Esc] to quit. [N] to toggle NOTIFYs");
         Console.WriteLine("{0,-2} {1,-6} {2,-10} {3,-12} {4,-45} {5,-45} {6,-16} {7,-16}", "*", "index", "date", "time", "from:", "to:", "src IP", "dst IP");
         Console.WriteLine(new String('-', 160));
@@ -619,8 +589,7 @@ public class siplog
                         Console.ForegroundColor = ConsoleColor.Gray;
                         break;
                 }
-            }
-                
+            }   
             if (keypressed.Key == ConsoleKey.S)
             {
                 do
@@ -831,7 +800,6 @@ public class siplog
                     break;
                 }
             }
-
             Console.Write(ua + new String(' ', 29 - ua.Length));
         }
         Console.WriteLine();
