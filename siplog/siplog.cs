@@ -24,7 +24,8 @@ public class siplog
             }
             foreach (String file in arg)
             {
-                if (!File.Exists(file))
+                
+                if (!File.Exists(file) && !Regex.IsMatch(file, @"^-\w\b"))
                 {
                     Console.WriteLine("\nFile " + file + " does not exist ");
                     Environment.Exit(1);
@@ -53,7 +54,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.7                                          Greg Palmer");
+            Console.WriteLine("Version 1.8                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -160,124 +161,136 @@ public class siplog
         Regex mAudioRgx = new Regex(mAudioRgxStr);
         Regex occasRgx = new Regex(occasRgxStr);        
         List <string[]> outputlist = new List<string[]>();
-        long progress = 0;        
+        long progress = 0;
+        bool UsePorts = false;
         foreach (string file in arg)
         {
-            Console.WriteLine();
-            long filelinecount = 0;
-            //count the number of lines in a file
-            using (StreamReader sr = new StreamReader(file))
+            if (file == "-p")
             {
-                string line;
-                while ((line = sr.ReadLine()) != null)
-                {
-                    filelinecount++;
-                    progress++;
-                    if (progress == 10000)
-                    {
-                        Console.Write(".");
-                        progress = 0;
-                    }
-                }
-                sr.Close();
+                UsePorts = true;
             }
-            Console.WriteLine("\nReading " + filelinecount + " lines of File : " + file);
-            Console.CursorTop = Console.CursorTop - 2;
-            using (StreamReader sread = new StreamReader(file))
+            else
             {
-                string line = "";
-                for (int filelinenum = 0; filelinenum < filelinecount; filelinenum++)
+                Console.WriteLine();
+                long filelinecount = 0;
+                //count the number of lines in a file
+                using (StreamReader sr = new StreamReader(file))
                 {
-                    progress++;
-                    if (progress == 10000)
+                    string line;
+                    while ((line = sr.ReadLine()) != null)
                     {
-                        Console.Write("!");
-                        progress = 0;
-                    }
-                    if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))                      
-                    {                       
-                        String[] outputarray = new String[17];
-                        outputarray[0] = filelinenum.ToString(); // get the index of the start of the msg 
-                        outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
-                        outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
-                        outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString();      //src IP                                                                        
-                        outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString();      //dst IP  
-                        line = sread.ReadLine();
-                        filelinenum++;
-                        //check to match these only once. no need match a field if it is already found
-                        bool sipTwoDotOfound = false;                        
-                        bool callidFound = false;
-                        bool toFound = false;
-                        bool fromFound = false;
-                        bool SDPFopund = false;
-                        bool SDPIPFound = false;
-                        bool mAudioFound = false;
-                        bool uaservfound = false;
-                        while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
+                        filelinecount++;
+                        progress++;
+                        if (progress == 10000)
                         {
-                            
-                            if (!sipTwoDotOfound && requestRgx.IsMatch(line))
-                            {
-                                outputarray[5] = requestRgx.Match(line).ToString().Trim();
-                                sipTwoDotOfound = true;                                
-                            }
-                            else if (!callidFound && callidRgx.IsMatch(line)){outputarray[6] = callidRgx.Match(line).ToString().Trim(); callidFound = true; } // get call-id                    
-                            else if (!toFound && toRgx.IsMatch(line)){ outputarray[7] = toRgx.Match(line).ToString().Trim(); toFound = true; } // get to:                    
-                            else if (!fromFound && fromRgx.IsMatch(line)){outputarray[8] = fromRgx.Match(line).ToString().Trim(); fromFound = true; } //get from                    
-                            else if (!SDPFopund && line.Contains("Content-Type: application/sdp")){ outputarray[11] = " SDP"; SDPFopund = true; }
-                            else if (!SDPIPFound && SDPIPRgx.IsMatch(line)){outputarray[13] = SDPIPRgx.Match(line).ToString(); SDPIPFound = true; }
-                            else if (!mAudioFound && mAudioRgx.IsMatch(line))
-                            {
-                                outputarray[14] = portRgx.Match(line).ToString().Trim();
-                                outputarray[15] = codecRgx.Match(line).ToString().Trim();
-                                if (outputarray[15] == "0") { outputarray[15] = "G711u"; }
-                                if (outputarray[15] == "8") { outputarray[15] = "G711a"; }
-                                if (outputarray[15] == "9") { outputarray[15] = "G722"; }
-                                if (outputarray[15] == "18") { outputarray[15] = "G729"; }
-                                mAudioFound = true;
-                            }
-                            else if (!uaservfound && uaRgx.IsMatch(line))
-                            {
-                                outputarray[16] = uaRgx.Match(line).ToString().Trim();
-                                uaservfound = true;
-                            }
-                            else if (!uaservfound && serverRgx.IsMatch(line))
-                            {
-                                outputarray[16] = serverRgx.Match(line).ToString().Trim();
-                                uaservfound = true;
-                            }
-                            else if (!uaservfound && occasRgx.IsMatch(line))
-                            {
-                                outputarray[16] = "occas";                                
-                            }
-                            if (filelinenum >= filelinecount) { break; }
-                            else
-                            {
-                                line = sread.ReadLine();
-                                filelinenum++;
-                            }
-                            progress++;
-                            if (progress == 10000)
-                            {
-                                Console.Write("!");
-                                progress = 0;
-                            }
+                            Console.Write(".");
+                            progress = 0;
                         }
-                        filelinenum--; // to counter the advancement of the for loop
-                        outputarray[9] = filelinenum.ToString(); // get the index of the end of the msg*/
-                        outputarray[10] = "ConsoleColor.Gray";
-                        outputarray[12] = file; //add file name to dataset 
-                        if (outputarray[5] == null) { outputarray[5] = "Invalid SIP characters"; }
-                        if (sipTwoDotOfound) { outputlist.Add(outputarray); }
                     }
-                    else
-                    {
-                        line = sread.ReadLine();
-                    }
+                    sr.Close();
                 }
-                sread.Close();
+                Console.WriteLine("\nReading " + filelinecount + " lines of File : " + file);
+                Console.CursorTop = Console.CursorTop - 2;
+                using (StreamReader sread = new StreamReader(file))
+                {
+                    string line = "";
+                    for (int filelinenum = 0; filelinenum < filelinecount; filelinenum++)
+                    {
+                        progress++;
+                        if (progress == 10000)
+                        {
+                            Console.Write("!");
+                            progress = 0;
+                        }
+                        if (!string.IsNullOrEmpty(line) && beginmsg.IsMatch(line))
+                        {
+                            String[] outputarray = new String[17];
+                            outputarray[0] = filelinenum.ToString(); // get the index of the start of the msg 
+                            outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
+                            outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
+                            //src IP                                                                        
+                            if (UsePorts){ outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):\d*(?= >)").ToString(); }
+                            else{ outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString(); }
+                            //dst IP 
+                            if (UsePorts){ outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):\d*").ToString(); }
+                            else{ outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString(); }    
+                            line = sread.ReadLine();
+                            filelinenum++;
+                            //check to match these only once. no need match a field if it is already found
+                            bool sipTwoDotOfound = false;
+                            bool callidFound = false;
+                            bool toFound = false;
+                            bool fromFound = false;
+                            bool SDPFopund = false;
+                            bool SDPIPFound = false;
+                            bool mAudioFound = false;
+                            bool uaservfound = false;
+                            while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
+                            {
+
+                                if (!sipTwoDotOfound && requestRgx.IsMatch(line))
+                                {
+                                    outputarray[5] = requestRgx.Match(line).ToString().Trim();
+                                    sipTwoDotOfound = true;
+                                }
+                                else if (!callidFound && callidRgx.IsMatch(line)) { outputarray[6] = callidRgx.Match(line).ToString().Trim(); callidFound = true; } // get call-id                    
+                                else if (!toFound && toRgx.IsMatch(line)) { outputarray[7] = toRgx.Match(line).ToString().Trim(); toFound = true; } // get to:                    
+                                else if (!fromFound && fromRgx.IsMatch(line)) { outputarray[8] = fromRgx.Match(line).ToString().Trim(); fromFound = true; } //get from                    
+                                else if (!SDPFopund && line.Contains("Content-Type: application/sdp")) { outputarray[11] = " SDP"; SDPFopund = true; }
+                                else if (!SDPIPFound && SDPIPRgx.IsMatch(line)) { outputarray[13] = SDPIPRgx.Match(line).ToString(); SDPIPFound = true; }
+                                else if (!mAudioFound && mAudioRgx.IsMatch(line))
+                                {
+                                    outputarray[14] = portRgx.Match(line).ToString().Trim();
+                                    outputarray[15] = codecRgx.Match(line).ToString().Trim();
+                                    if (outputarray[15] == "0") { outputarray[15] = "G711u"; }
+                                    if (outputarray[15] == "8") { outputarray[15] = "G711a"; }
+                                    if (outputarray[15] == "9") { outputarray[15] = "G722"; }
+                                    if (outputarray[15] == "18") { outputarray[15] = "G729"; }
+                                    mAudioFound = true;
+                                }
+                                else if (!uaservfound && uaRgx.IsMatch(line))
+                                {
+                                    outputarray[16] = uaRgx.Match(line).ToString().Trim();
+                                    uaservfound = true;
+                                }
+                                else if (!uaservfound && serverRgx.IsMatch(line))
+                                {
+                                    outputarray[16] = serverRgx.Match(line).ToString().Trim();
+                                    uaservfound = true;
+                                }
+                                else if (!uaservfound && occasRgx.IsMatch(line))
+                                {
+                                    outputarray[16] = "occas";
+                                }
+                                if (filelinenum >= filelinecount) { break; }
+                                else
+                                {
+                                    line = sread.ReadLine();
+                                    filelinenum++;
+                                }
+                                progress++;
+                                if (progress == 10000)
+                                {
+                                    Console.Write("!");
+                                    progress = 0;
+                                }
+                            }
+                            filelinenum--; // to counter the advancement of the for loop
+                            outputarray[9] = filelinenum.ToString(); // get the index of the end of the msg*/
+                            outputarray[10] = "ConsoleColor.Gray";
+                            outputarray[12] = file; //add file name to dataset 
+                            if (outputarray[5] == null) { outputarray[5] = "Invalid SIP characters"; }
+                            if (sipTwoDotOfound) { outputlist.Add(outputarray); }
+                        }
+                        else
+                        {
+                            line = sread.ReadLine();
+                        }
+                    }
+                    sread.Close();
+                }
+                Console.CursorTop = Console.CursorTop + 2;
             }
-            Console.CursorTop = Console.CursorTop + 2;
         }
         Console.WriteLine();
         return outputlist;
@@ -622,7 +635,6 @@ public class siplog
                     Console.CursorTop -= 3;
                     Console.CursorLeft += 4;
                     filter = Console.ReadLine().Split(' ');
-                    bool foundcalls = false;
                     if (!string.IsNullOrEmpty(filter[0]))
                     {
                         for (int i = 0; i < callLegs.Count; i++)
