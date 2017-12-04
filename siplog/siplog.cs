@@ -15,6 +15,7 @@ public class siplog
         {
             List<string[]> messages = new List<string[]>();
             List<string[]> callLegs = new List<string[]>();
+            bool UsePorts = false;
             if (arg.Length == 0)
             {
                 Console.ForegroundColor = ConsoleColor.White;
@@ -24,7 +25,10 @@ public class siplog
             }
             foreach (String file in arg)
             {
-                
+                if (file == "-p")
+                {
+                    UsePorts = true;
+                }
                 if (!File.Exists(file) && !Regex.IsMatch(file, @"^-\w\b"))
                 {
                     Console.WriteLine("\nFile " + file + " does not exist ");
@@ -54,7 +58,7 @@ public class siplog
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(@"                                                       \_/__/  ");
             Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("Version 1.8                                          Greg Palmer");
+            Console.WriteLine("Version 1.09                                          Greg Palmer");
             Console.WriteLine();
             if (arg.Length == 0)
             {
@@ -63,7 +67,7 @@ public class siplog
                 Console.ForegroundColor = ConsoleColor.Gray;
                 Environment.Exit(1);
             }
-            messages = findmessages(arg);      //find SIP messages output to List<string[]> with 
+            messages = findmessages(arg, UsePorts);      //find SIP messages output to List<string[]> with 
                                                //  index start of msg[0], 
                                                //  date[1] 
                                                //  time[2]
@@ -135,7 +139,7 @@ public class siplog
         }
     }
 
-    static List<string[]> findmessages(String[] arg)
+    static List<string[]> findmessages(String[] arg, bool UsePorts)
     {
         Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
         string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
@@ -161,8 +165,7 @@ public class siplog
         Regex mAudioRgx = new Regex(mAudioRgxStr);
         Regex occasRgx = new Regex(occasRgxStr);        
         List <string[]> outputlist = new List<string[]>();
-        long progress = 0;
-        bool UsePorts = false;
+        long progress = 0;        
         foreach (string file in arg)
         {
             if (file == "-p")
@@ -227,7 +230,6 @@ public class siplog
                             bool uaservfound = false;
                             while (!beginmsg.IsMatch(line)) //untill the begining of the next msg
                             {
-
                                 if (!sipTwoDotOfound && requestRgx.IsMatch(line))
                                 {
                                     outputarray[5] = requestRgx.Match(line).ToString().Trim();
@@ -862,7 +864,6 @@ public class siplog
             Console.Write(space);
         }
         Console.ForegroundColor = (ConsoleColor)Enum.Parse(typeof(ConsoleColor), message[10]);
-
         if (isright) { Console.Write("-"); }
         else { Console.Write("<"); }
         string firstline = message[5].Replace("SIP/2.0 ", "");
@@ -1181,7 +1182,10 @@ public class siplog
                     displaymessage(position, filtered);
                     Console.Clear();
                     Console.BufferWidth = 500;
-                    Console.BufferHeight = filtered.Count + 10;
+                    if (filtered.Count > Console.WindowHeight)
+                    {
+                        Console.BufferHeight = filtered.Count + 10;
+                    }
                     Console.SetCursorPosition(0, 0);
                     foreach (string[] line in filtered)
                     {
