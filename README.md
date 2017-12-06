@@ -1,5 +1,6 @@
 # siplog
 Log reader for "tcpdump -i any -nn -A -tttt port 5060" stdout type of SIP message logs.
+requires .net Framework4
 
 Usage: siplog.exe logfile.log anotherlogfile.log ...
 
