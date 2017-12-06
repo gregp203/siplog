@@ -14,27 +14,8 @@ public class siplog
         try
         {
             List<string[]> messages = new List<string[]>();
-            List<string[]> callLegs = new List<string[]>();
-            bool UsePorts = false;
-            if (arg.Length == 0)
-            {
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.WriteLine("\nNO FILES WERE SPECIFIED - Usage: siplog.exe logfile.log anotherlogfile.log ... ");
-                Console.ForegroundColor = ConsoleColor.Gray;
-                Environment.Exit(1);
-            }
-            foreach (String file in arg)
-            {
-                if (file == "-p")
-                {
-                    UsePorts = true;
-                }
-                if (!File.Exists(file) && !Regex.IsMatch(file, @"^-\w\b"))
-                {
-                    Console.WriteLine("\nFile " + file + " does not exist ");
-                    Environment.Exit(1);
-                }
-            }
+            List<string[]> callLegs = new List<string[]>();          
+            
 
             Console.Clear();
             if (Console.BufferWidth < 200) { Console.BufferWidth = 200; }
@@ -67,7 +48,7 @@ public class siplog
                 Console.ForegroundColor = ConsoleColor.Gray;
                 Environment.Exit(1);
             }
-            messages = findmessages(arg, UsePorts);      //find SIP messages output to List<string[]> with 
+            messages = findmessages(arg);      //find SIP messages output to List<string[]> with 
                                                //  index start of msg[0], 
                                                //  date[1] 
                                                //  time[2]
@@ -139,7 +120,7 @@ public class siplog
         }
     }
 
-    static List<string[]> findmessages(String[] arg, bool UsePorts)
+    static List<string[]> findmessages(String[] arg)
     {
         Regex beginmsg = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}");  //regex to match the begining of the sip message (if it starts with a date and has time and two IP addresses) 
         string requestRgxStr = @"ACK.*SIP\/2\.0|BYE.*SIP\/2\.0|CANCEL.*SIP\/2\.0|INFO.*SIP\/2\.0|INVITE.*SIP\/2\.0|MESSAGE.*SIP\/2\.0|NOTIFY.*SIP\/2\.0|OPTIONS.*SIP\/2\.0|PRACK.*SIP\/2\.0|PUBLISH.*SIP\/2\.0|REFER.*SIP\/2\.0|REGISTER.*SIP\/2\.0|SUBSCRIBE.*SIP\/2\.0|UPDATE.*SIP\/2\.0|SIP\/2\.0 \d{3}.*";
@@ -165,15 +146,33 @@ public class siplog
         Regex mAudioRgx = new Regex(mAudioRgxStr);
         Regex occasRgx = new Regex(occasRgxStr);        
         List <string[]> outputlist = new List<string[]>();
-        long progress = 0;        
-        foreach (string file in arg)
+        long progress = 0;
+        bool IncludePorts = false;
+
+        if (arg.Length == 0)
         {
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine("\nNO FILES WERE SPECIFIED - Usage: siplog.exe logfile.log anotherlogfile.log ... ");
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Environment.Exit(1);
+        }
+        foreach (String file in arg)
+        {
+            if (!File.Exists(file) && !Regex.IsMatch(file, @"^-\w\b"))
+            {
+                Console.WriteLine("\nFile " + file + " does not exist ");
+                Environment.Exit(1);
+            }
             if (file == "-p")
             {
-                UsePorts = true;
+                IncludePorts = true;
             }
-            else
-            {
+        }
+
+        foreach (string file in arg)
+        {
+            if(!Regex.IsMatch(file, @"^-\w\b"))
+            { 
                 Console.WriteLine();
                 long filelinecount = 0;
                 //count the number of lines in a file
@@ -212,10 +211,10 @@ public class siplog
                             outputarray[1] = Regex.Match(line, @"(\d{4}-\d{2}-\d{2})").ToString();                             //date                                 
                             outputarray[2] = Regex.Match(line, @"(\d{2}:\d{2}:\d{2}.\d{6})").ToString();                       //time            
                             //src IP                                                                        
-                            if (UsePorts){ outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):\d*(?= >)").ToString(); }
+                            if (IncludePorts) { outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):\d*(?= >)").ToString(); }
                             else{ outputarray[3] = Regex.Match(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})").ToString(); }
                             //dst IP 
-                            if (UsePorts){ outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):\d*").ToString(); }
+                            if (IncludePorts) { outputarray[4] = Regex.Match(line, @"(?<=> )(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):\d*").ToString(); }
                             else{ outputarray[4] = Regex.Matches(line, @"(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})")[1].ToString(); }    
                             line = sread.ReadLine();
                             filelinenum++;
