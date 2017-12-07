@@ -797,7 +797,7 @@ public class siplog
             width = width + 29;
             if (width > Console.WindowWidth)
             {
-                Console.BufferWidth = width;
+                Console.BufferWidth = Math.Min(15 + width, Int16.MaxValue - 1);
             }
             Console.Write(ip + new String(' ', 29 - ip.Length));
         }
